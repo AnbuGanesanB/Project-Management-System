@@ -1,4 +1,4 @@
-package com.Anbu.TaskManagementSystem.model.ticketHistory;
+package com.Anbu.TaskManagementSystem.model.ticket;
 
 public enum TicketAttribute {
 

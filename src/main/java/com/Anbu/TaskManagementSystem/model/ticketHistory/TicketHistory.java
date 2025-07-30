@@ -3,6 +3,7 @@ package com.Anbu.TaskManagementSystem.model.ticketHistory;
 import com.Anbu.TaskManagementSystem.model.attachment.Attachment;
 import com.Anbu.TaskManagementSystem.model.employee.Employee;
 import com.Anbu.TaskManagementSystem.model.ticket.Ticket;
+import com.Anbu.TaskManagementSystem.model.ticket.TicketAttribute;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;

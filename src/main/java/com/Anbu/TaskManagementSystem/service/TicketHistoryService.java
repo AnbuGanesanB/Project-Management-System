@@ -3,7 +3,7 @@ package com.Anbu.TaskManagementSystem.service;
 import com.Anbu.TaskManagementSystem.model.attachment.Attachment;
 import com.Anbu.TaskManagementSystem.model.employee.Employee;
 import com.Anbu.TaskManagementSystem.model.ticket.Ticket;
-import com.Anbu.TaskManagementSystem.model.ticketHistory.TicketAttribute;
+import com.Anbu.TaskManagementSystem.model.ticket.TicketAttribute;
 import com.Anbu.TaskManagementSystem.model.ticketHistory.TicketHistory;
 import org.springframework.stereotype.Service;
 

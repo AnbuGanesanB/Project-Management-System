@@ -7,27 +7,20 @@ import com.Anbu.TaskManagementSystem.model.attachment.Attachment;
 import com.Anbu.TaskManagementSystem.model.employee.Employee;
 import com.Anbu.TaskManagementSystem.model.project.Project;
 import com.Anbu.TaskManagementSystem.model.ticket.*;
-import com.Anbu.TaskManagementSystem.model.ticketHistory.TicketAttribute;
+import com.Anbu.TaskManagementSystem.model.ticket.TicketAttribute;
 import com.Anbu.TaskManagementSystem.model.ticketHistory.TicketHistory;
 import com.Anbu.TaskManagementSystem.model.ticketHistory.TicketHistoryMapper;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-import org.springframework.util.Assert;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.File;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service

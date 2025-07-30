@@ -1,7 +1,6 @@
 package com.Anbu.TaskManagementSystem.model.ticket;
 
 import com.Anbu.TaskManagementSystem.exception.TicketException;
-import com.Anbu.TaskManagementSystem.model.ticketHistory.TicketAttribute;
 import org.springframework.stereotype.Component;
 
 @Component
