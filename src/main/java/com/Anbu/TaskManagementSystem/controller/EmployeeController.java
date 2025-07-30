@@ -30,7 +30,7 @@ public class EmployeeController {
     
 
     @PostMapping("login")
-    public ResponseEntity<Map<String, String>> login(@RequestBody EmployeeLoginDTO employeeLoginDTO, @RequestHeader Map<String, String> headers){
+    public ResponseEntity<Map<String, String>> login(@RequestBody EmployeeLoginDTO employeeLoginDTO){
         return employeeService.authenticateEmployee(employeeLoginDTO);
     }
 
@@ -111,11 +111,4 @@ public class EmployeeController {
         return employeeMapper.getIndividualEmployeeDetails(employeeService.getEmployeeByEmpId(employee.getEmpId()));
     }
 
-    @PostMapping("/login2")
-    public ResponseEntity<Map<String, String>> login2(@RequestParam Map<String, String> loginCredentials){
-        EmployeeLoginDTO employeeLoginDTO = new EmployeeLoginDTO();
-        employeeLoginDTO.setEmail(loginCredentials.get("email"));
-        employeeLoginDTO.setPassword(loginCredentials.get("password"));
-        return employeeService.authenticateEmployee(employeeLoginDTO);
-    }
 }

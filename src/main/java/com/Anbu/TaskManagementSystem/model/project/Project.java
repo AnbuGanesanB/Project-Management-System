@@ -1,5 +1,6 @@
 package com.Anbu.TaskManagementSystem.model.project;
 
+import com.Anbu.TaskManagementSystem.model.attachment.Attachment;
 import com.Anbu.TaskManagementSystem.model.employee.Employee;
 import com.Anbu.TaskManagementSystem.model.ticket.Ticket;
 import jakarta.persistence.*;
@@ -8,6 +9,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.util.List;
+import java.util.Objects;
 
 @Data
 @NoArgsConstructor
@@ -37,8 +39,29 @@ public class Project {
     @OneToMany(mappedBy = "project")
     private List<Ticket> tickets;
 
-    public String toString(){
-        return "Hello";
+    @OneToMany(mappedBy = "project")
+    private List<Attachment> attachment;
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Project project = (Project) o;
+        return Objects.equals(id, project.id);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(id);
+    }
+
+    @Override
+    public String toString() {
+        return "Project{" +
+                "id=" + id +
+                ", projectName='" + projectName + '\'' +
+                ", acronym='" + acronym + '\'' +
+                '}';
     }
 
 }

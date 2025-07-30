@@ -33,15 +33,11 @@ public class TicketController {
 
     @PreAuthorize("hasAuthority('TICKET_UPDATE')")
     @PostMapping("/projects/tickets/{ticketId}")
-    public String updateTicket(@PathVariable("ticketId")Integer ticketId, @RequestBody Map<String,String> changes){
-        ticketService.updateTicket(ticketId,changes);
-        return "Ticket Updated";
-    }
-
-    @PreAuthorize("hasAuthority('TICKET_UPDATE')")
-    @PostMapping("/projects/tickets/{ticketId}/upload")
-    public void uploadAttachment(@PathVariable("ticketId")Integer ticketId, @RequestParam("file[]") List<MultipartFile> files){
-        attachmentService.uploadFiles(ticketId, files);
+    public ResponseEntity<?> updateTicket(@RequestParam("ticketId") Integer ticketId,
+                                       @RequestParam("attribute") String attribute,
+                                       @RequestParam(value = "files",required = false) List<MultipartFile> files,
+                                       @RequestParam(value = "value",required = false) String value){
+        return ticketService.updateTicket(ticketId,attribute,files,value);
     }
 
     @PreAuthorize("hasAuthority('TICKET_VIEW')")

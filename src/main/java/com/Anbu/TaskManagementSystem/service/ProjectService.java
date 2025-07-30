@@ -2,7 +2,6 @@ package com.Anbu.TaskManagementSystem.service;
 
 import com.Anbu.TaskManagementSystem.Repository.EmployeeRepo;
 import com.Anbu.TaskManagementSystem.Repository.ProjectRepository;
-import com.Anbu.TaskManagementSystem.config.LockConfig;
 import com.Anbu.TaskManagementSystem.exception.EmployeeException;
 import com.Anbu.TaskManagementSystem.exception.ProjectException;
 import com.Anbu.TaskManagementSystem.model.employee.Employee;
@@ -19,7 +18,6 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
-import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 
 @Service
@@ -31,7 +29,6 @@ public class ProjectService {
     private final TicketMapper ticketMapper;
     private final ProjectRepository projectRepository;
     private final EmployeeService employeeService;
-    private final ReentrantLock lock;
 
     @Transactional
     public void createNewProject(NewProjectDTO newProjectDTO) throws InterruptedException {

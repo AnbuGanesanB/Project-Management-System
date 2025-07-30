@@ -1,10 +1,15 @@
 package com.Anbu.TaskManagementSystem.service;
 
+import com.Anbu.TaskManagementSystem.Repository.TicketHistoryRepo;
 import com.Anbu.TaskManagementSystem.Repository.TicketRepository;
 import com.Anbu.TaskManagementSystem.exception.TicketException;
+import com.Anbu.TaskManagementSystem.model.attachment.Attachment;
 import com.Anbu.TaskManagementSystem.model.employee.Employee;
 import com.Anbu.TaskManagementSystem.model.project.Project;
 import com.Anbu.TaskManagementSystem.model.ticket.*;
+import com.Anbu.TaskManagementSystem.model.ticketHistory.TicketAttribute;
+import com.Anbu.TaskManagementSystem.model.ticketHistory.TicketHistory;
+import com.Anbu.TaskManagementSystem.model.ticketHistory.TicketHistoryMapper;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -19,6 +24,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -32,16 +38,21 @@ public class TicketService {
     private final ProjectService projectService;
     private final EmployeeService employeeService;
     private final TicketMapper ticketMapper;
+    private final TicketHistoryRepo ticketHistoryRepo;
+    private final TicketAttributeValidator ticketAttributeValidator;
+    private final TicketHistoryMapper ticketHistoryMapper;
+    private final AttachmentService attachmentService;
+    private final TicketHistoryService historyService;
 
 
     public void createNewTicket(String projAcronym, NewTicketDTO newTicketDTO){
         Project targetProject = projectService.getProjectByAcronym(projAcronym);
         Employee currentUser = employeeService.getCurrentUser();
 
-        if(!isUserAuthorisedToCreateOrUpdateTicket(currentUser,targetProject)){
-            return;
-        }
+        checkUserAuthorisedToCreateOrUpdateTicket(currentUser,targetProject);
+
         LocalDateTime currentTime = LocalDateTime.now();
+
         Ticket ticket = new Ticket();
         ticket.setProject(targetProject);
         ticket.setTitle(newTicketDTO.getTitle());
@@ -51,117 +62,114 @@ public class TicketService {
         ticket.setCreatedBy(currentUser);
         ticket.setCreatedOn(currentTime);
         ticket.setUpdatedOn(currentTime);
+        ticket = ticketRepository.save(ticket);
 
-        ObjectMapper mainObjectMapper = new ObjectMapper();
-        ArrayNode arrayNode = mainObjectMapper.createArrayNode();
-        ObjectMapper childObjectMapper = new ObjectMapper();
-        ObjectNode objectNode = childObjectMapper.createObjectNode();
-        objectNode.put("created On",currentTime.toString());
-        objectNode.put("created By",currentUser.getUsername());
-        arrayNode.add(objectNode);
-        ticket.setActions(arrayNode);
-
+        TicketHistory ticketHistory = new TicketHistory();
+        ticketHistory.setTicket(ticket);
+        ticketHistory.setUpdatedBy(currentUser);
+        ticketHistory.setUpdatedOn(currentTime);
+        ticketHistory.setTicketAttribute(TicketAttribute.CREATE);
+        //ticketHistoryRepo.save(ticketHistory);
+        ticket.getHistories().add(ticketHistory);
         ticketRepository.save(ticket);
     }
 
     @Transactional
-    public void updateTicket(Integer ticketId, Map<String,String> changes){
-        Ticket currentTicket = getTicketById(ticketId);
-        String field = changes.get("field").toLowerCase();
-        String currentValue = changes.get("currentValue");
-        Project targetProject = currentTicket.getProject();
+    public ResponseEntity<?> updateTicket(Integer ticketId, String attribute, List<MultipartFile> files, String value) {
 
+        Ticket currentTicket = getTicketById(ticketId);
+        Project targetProject = currentTicket.getProject();
         Employee currentUser = employeeService.getCurrentUser();
         LocalDateTime currentTime = LocalDateTime.now();
 
-        if(!isUserAuthorisedToCreateOrUpdateTicket(currentUser,targetProject)){
-            return;
-        }
+        checkUserAuthorisedToCreateOrUpdateTicket(currentUser,targetProject);
 
-        JsonNode currentjsonNode = currentTicket.getActions();
-        ArrayNode currentArrayNode = (ArrayNode) currentjsonNode;
-        ObjectMapper childObjectMapper = new ObjectMapper();
-        ObjectNode objectNode = childObjectMapper.createObjectNode();
+        List<TicketHistory> historiesToSave = new ArrayList<>();
 
-        objectNode.put("updated On",currentTime.toString());
-        objectNode.put("updated By",currentUser.getUsername());
-        objectNode.put("Action",field);
-
-        switch (field.toLowerCase()){
-            case "status":
-                if(currentTicket.getTicketStatus() == TicketStatus.valueOf(currentValue.toUpperCase())){
-                    throw new TicketException.NoUpdationNeededException("No update");
+        switch (attribute.toLowerCase()) {
+            case "status" -> {
+                ticketAttributeValidator.validateValue(TicketAttribute.STATUS,value);
+                if (currentTicket.getTicketStatus() == TicketStatus.valueOf(value.toUpperCase())) {
+                    return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
                 }
-                objectNode.put("Old",currentTicket.getTicketStatus().name());
-                objectNode.put("New",currentValue);
-                currentTicket.setTicketStatus(TicketStatus.valueOf(currentValue.toUpperCase()));
-                break;
 
-            case "type":
-                if(currentTicket.getTicketType() == TicketType.valueOf(currentValue.toUpperCase())){
-                    throw new TicketException.NoUpdationNeededException("No update");
+                historiesToSave.add(historyService.createHistory(currentTicket,currentUser,currentTime,TicketAttribute.STATUS,currentTicket.getTicketStatus().name(),value.toUpperCase(),null,null));
+
+                currentTicket.setTicketStatus(TicketStatus.valueOf(value.toUpperCase()));
+            }
+            case "type" -> {
+                ticketAttributeValidator.validateValue(TicketAttribute.TYPE,value);
+                if (currentTicket.getTicketType() == TicketType.valueOf(value.toUpperCase())) {
+                    return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
                 }
-                objectNode.put("Old",currentTicket.getTicketType().name());
-                objectNode.put("New",currentValue);
-                currentTicket.setTicketType(TicketType.valueOf(currentValue.toUpperCase()));
-                break;
 
-            case "comment":
+                historiesToSave.add(historyService.createHistory(currentTicket,currentUser,currentTime,TicketAttribute.TYPE,currentTicket.getTicketType().name(),value.toUpperCase(),null,null));
 
-                ArrayNode commentArrayNode = currentTicket.getComments() == null ? new ObjectMapper().createArrayNode() : (ArrayNode)currentTicket.getComments();
-                ObjectNode commentObjectNode = new ObjectMapper().createObjectNode();
-                commentObjectNode.put("commented By",currentUser.getUsername());
-                commentObjectNode.put("commented On",currentTime.toString());
-                commentObjectNode.put("comment",currentValue);
-                commentArrayNode.add(commentObjectNode);
-                currentTicket.setComments(commentArrayNode);
-                break;
+                currentTicket.setTicketType(TicketType.valueOf(value.toUpperCase()));
+            }
+            case "comment" -> {
+                ticketAttributeValidator.validateValue(TicketAttribute.COMMENT,value);
 
-            case "title":
-                if(currentTicket.getTitle().equalsIgnoreCase(currentValue)){
-                    throw new TicketException.NoUpdationNeededException("No update");
+                historiesToSave.add(historyService.createHistory(currentTicket,currentUser,currentTime,TicketAttribute.COMMENT,null,value,null,null));
+            }
+            case "title" -> {
+                ticketAttributeValidator.validateValue(TicketAttribute.TITLE,value);
+                if (currentTicket.getTitle().equalsIgnoreCase(value)) {
+                    return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
                 }
-                objectNode.put("Old",currentTicket.getTitle());
-                objectNode.put("New",currentValue);
-                currentTicket.setTitle(currentValue);
-                break;
 
-            case "description":
-                if(currentTicket.getDescription().equalsIgnoreCase(currentValue)){
-                    throw new TicketException.NoUpdationNeededException("No update");
+                historiesToSave.add(historyService.createHistory(currentTicket,currentUser,currentTime,TicketAttribute.TITLE,currentTicket.getTitle(),value,null,null));
+
+                currentTicket.setTitle(value);
+            }
+            case "description" -> {
+                ticketAttributeValidator.validateValue(TicketAttribute.DESCRIPTION,value);
+                if (currentTicket.getDescription().equalsIgnoreCase(value)) {
+                    return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
                 }
-                objectNode.put("Old",currentTicket.getDescription());
-                objectNode.put("New",currentValue);
-                currentTicket.setDescription(currentValue);
-                break;
 
-            case "assignee":
+                historiesToSave.add(historyService.createHistory(currentTicket,currentUser,currentTime,TicketAttribute.DESCRIPTION,currentTicket.getDescription(),value,null,null));
+
+                currentTicket.setDescription(value);
+            }
+            case "assignee" -> {
+                ticketAttributeValidator.validateValue(TicketAttribute.ASSIGNEE,value);
+
                 Employee existingAssignee = currentTicket.getAssignee();
-                Employee currentAssignee = currentValue != null ? employeeService.getEmployeeByEmpId(currentValue) : null;
-                if(currentAssignee == existingAssignee){
-                    throw new TicketException.NoUpdationNeededException("No update");
-                }
-                else if(currentAssignee != null){
-                    if(!isUserAuthorisedToCreateOrUpdateTicket(currentAssignee,targetProject)){
-                        return;
-                    }
-                    objectNode.put("assigned","yes");
-                    objectNode.put("assignee",currentAssignee.getUsername());
+                Employee currentAssignee = value != null ? employeeService.getEmployeeByEmpId(value) : null;
+
+                if (currentAssignee == existingAssignee) {
+                    return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
+
+                } else if (currentAssignee != null) {
+                    checkUserAuthorisedToCreateOrUpdateTicket(currentUser,targetProject);
+                    historiesToSave.add(historyService.createHistory(currentTicket,currentUser,currentTime,TicketAttribute.ASSIGNEE,null,null,currentAssignee,null));
                     currentTicket.setAssignee(currentAssignee);
-                }
-                else {
-                    objectNode.put("assigned","no");
+                } else {
+                    historiesToSave.add(historyService.createHistory(currentTicket,currentUser,currentTime,TicketAttribute.ASSIGNEE,null,null,null,null));
                     currentTicket.setAssignee(null);
                 }
-                break;
+            }
+            case "file" -> {
+                if(files == null || files.isEmpty())
+                    throw new TicketException.NotValidInputException("File not selected");
 
-            default:
-                throw new RuntimeException("Ticket Not Created!!");
+                for(MultipartFile file: files){
+                    Attachment attachment = attachmentService.saveFiles(currentTicket,file);
+                    historiesToSave.add(historyService.createHistory(currentTicket,currentUser,currentTime,TicketAttribute.FILE,null,null,null,attachment));
+                }
+            }
+            default -> throw new TicketException.NotValidInputException("Provide valid Attribute");
         }
-        currentArrayNode.add(objectNode);
-        currentTicket.setActions(currentArrayNode);
+        historiesToSave = ticketHistoryRepo.saveAll(historiesToSave);
+
+        currentTicket.getHistories().addAll(historiesToSave);
         currentTicket.setUpdatedOn(currentTime);
         ticketRepository.save(currentTicket);
+
+        return ResponseEntity.ok(historiesToSave.stream()
+                .map(ticketHistoryMapper::retrieveTicketHistory)
+                .toList());
     }
 
     public Ticket getTicketById(Integer ticketId){
@@ -173,9 +181,8 @@ public class TicketService {
         Ticket ticket = getTicketById(ticketId);
         Project targetProject = ticket.getProject();
         Employee currentUser = employeeService.getCurrentUser();
-        if(!isUserAuthorisedToDeleteTicket(currentUser,targetProject)){
-            return;
-        }
+
+        checkUserAuthorisedToDeleteTicket(currentUser,targetProject);
         ticketRepository.delete(ticket);
     }
 
@@ -191,18 +198,17 @@ public class TicketService {
                 .stream().map(ticketMapper::getTicket).collect(Collectors.toList());
     }
 
-    boolean isUserAuthorisedToCreateOrUpdateTicket(Employee currentUser, Project targetProject){
+    void checkUserAuthorisedToCreateOrUpdateTicket(Employee currentUser, Project targetProject){
         if(!(targetProject.getProjectAdmins().contains(currentUser)) && !(targetProject.getMembers().contains(currentUser))){
             throw new TicketException.UserNotAuthorisedException("User must be Participant on this project");
         }
-        return true;
     }
 
-    boolean isUserAuthorisedToDeleteTicket(Employee currentUser, Project targetProject){
+    void checkUserAuthorisedToDeleteTicket(Employee currentUser, Project targetProject){
         if(!(targetProject.getProjectAdmins().contains(currentUser))){
             throw new TicketException.UserNotAuthorisedException("User must be Project Admin");
         }
-        return true;
     }
+
 
 }
