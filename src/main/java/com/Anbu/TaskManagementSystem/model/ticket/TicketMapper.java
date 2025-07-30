@@ -1,13 +1,20 @@
 package com.Anbu.TaskManagementSystem.model.ticket;
 
+import com.Anbu.TaskManagementSystem.model.attachment.AttachmentMapper;
 import com.Anbu.TaskManagementSystem.model.employee.Employee;
+import com.Anbu.TaskManagementSystem.model.ticketHistory.TicketHistory;
+import com.Anbu.TaskManagementSystem.model.ticketHistory.TicketHistoryMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
+
+import java.util.stream.Collectors;
 
 @Component
 @RequiredArgsConstructor
 public class TicketMapper {
 
+    private final AttachmentMapper attachmentMapper;
+    private final TicketHistoryMapper ticketHistoryMapper;
 
     public TicketRetrieveDTO getTicket(Ticket ticket){
 
@@ -26,8 +33,17 @@ public class TicketMapper {
         ticketRetrieveDTO.setAssignee(assignee==null ? null : assignee.getUsername());
 
         ticketRetrieveDTO.setProject(ticket.getProject().getProjectName());
-        ticketRetrieveDTO.setHistory(ticket.getActions());
-        ticketRetrieveDTO.setComments(ticket.getComments());
+
+        ticketRetrieveDTO.setAttachments(ticket.getAttachment()
+                .stream()
+                .map(attachmentMapper::provideAttachmentDto)
+                .collect(Collectors.toList()));
+
+        ticketRetrieveDTO.setTicketHistory(ticket.getHistories()
+                .stream()
+                .map(ticketHistoryMapper::retrieveTicketHistory)
+                .collect(Collectors.toList()));
+
         return ticketRetrieveDTO;
     }
 }

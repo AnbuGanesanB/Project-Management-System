@@ -6,9 +6,9 @@ import com.Anbu.TaskManagementSystem.config.JwtAuthFilter;
 import com.Anbu.TaskManagementSystem.exception.EmployeeException;
 import com.Anbu.TaskManagementSystem.model.employee.*;
 import com.Anbu.TaskManagementSystem.model.project.Project;
+import io.jsonwebtoken.security.SignatureException;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
-import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -64,6 +64,7 @@ public class EmployeeService {
             Map<String, String> errorResponse = new HashMap<>();
             errorResponse.put("error", "Your account is disabled. Please contact support.");
             return new ResponseEntity<>(errorResponse, HttpStatus.FORBIDDEN);
+
         }
     }
 

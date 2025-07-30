@@ -1,5 +1,7 @@
 package com.Anbu.TaskManagementSystem.model.ticket;
 
+import com.Anbu.TaskManagementSystem.model.attachment.AttachmentDTO;
+import com.Anbu.TaskManagementSystem.model.ticketHistory.TicketHistoryDto;
 import com.fasterxml.jackson.databind.JsonNode;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -22,8 +24,7 @@ public class TicketRetrieveDTO {
     private String updatedOn;
     private String project;
     private String assignee;
-    private JsonNode history;
-    private JsonNode comments;
-
+    private List<AttachmentDTO> attachments;
+    private List<TicketHistoryDto> ticketHistory;
 
 }

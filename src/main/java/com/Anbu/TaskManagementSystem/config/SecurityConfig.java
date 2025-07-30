@@ -60,7 +60,7 @@ public class SecurityConfig {
                             System.out.println(authException.getMessage());
                             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                             response.setContentType("application/json");
-                            response.getWriter().write("Token Invalid! Kindly login again");
+                            response.getWriter().write("Token Invalid! Kindly login again oooooooooo");
                             response.getWriter().flush();
                         })
                 )

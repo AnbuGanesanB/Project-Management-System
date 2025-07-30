@@ -1,7 +1,10 @@
 package com.Anbu.TaskManagementSystem.config;
 
+import com.Anbu.TaskManagementSystem.exception.JWT_Exception;
 import com.Anbu.TaskManagementSystem.model.employee.Employee;
 import com.Anbu.TaskManagementSystem.service.JwtService;
+import io.jsonwebtoken.JwtException;
+import io.jsonwebtoken.security.SignatureException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -24,39 +27,44 @@ import java.io.IOException;
 public class JwtAuthFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
-
     private final UserDetailsService userDetailsService;
-
 
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response, @NonNull FilterChain filterChain) throws ServletException, IOException {
 
-        final String authHeader = request.getHeader("Authorization");
-        String jwtToken = null;
-        String username = null;
-        String email = null;
+        try{
+            final String authHeader = request.getHeader("Authorization");
 
-        if(authHeader == null || !authHeader.startsWith("Bearer ")){
-            filterChain.doFilter(request,response);
-            return;
-        }
-        if(authHeader != null && authHeader.startsWith("Bearer ")){
-            jwtToken = authHeader.substring(7);
-            username = jwtService.extractUsername(jwtToken);
-            email = jwtService.extractEmail(jwtToken);
-            System.out.println("User:"+username);
-        }
-        if(email != null && SecurityContextHolder.getContext().getAuthentication() == null){
-            UserDetails userDetails = this.userDetailsService.loadUserByUsername(email);
-            Employee contextEmployee = (Employee)userDetails;
-            if(jwtService.isTokenValid(jwtToken,contextEmployee)){
-                UsernamePasswordAuthenticationToken authToken =
-                        new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
-                authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                SecurityContextHolder.getContext().setAuthentication(authToken);
+            String jwtToken = null;
+            String username = null;
+            String email = null;
+
+            if(authHeader == null || !authHeader.startsWith("Bearer ")){
+                filterChain.doFilter(request,response);
+                return;
             }
+            if(authHeader != null && authHeader.startsWith("Bearer ")){
+                jwtToken = authHeader.substring(7);
+                username = jwtService.extractUsername(jwtToken);
+                email = jwtService.extractEmail(jwtToken);
+                System.out.println("User:"+username);
+            }
+            if(email != null && SecurityContextHolder.getContext().getAuthentication() == null){
+                UserDetails userDetails = this.userDetailsService.loadUserByUsername(email);
+                Employee contextEmployee = (Employee)userDetails;
+                if(jwtService.isTokenValid(jwtToken,contextEmployee)){
+                    UsernamePasswordAuthenticationToken authToken =
+                            new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+                    authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                    SecurityContextHolder.getContext().setAuthentication(authToken);
+                }
+            }
+            filterChain.doFilter(request,response);
+
+        } catch (JwtException ex) {
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.getWriter().write("{\"JWT Error\":\"" + "Invalid JWT token" + "\"}");
         }
-        filterChain.doFilter(request,response);
     }
 
     public String getCurrentUser(){

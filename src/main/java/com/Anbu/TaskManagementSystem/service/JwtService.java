@@ -6,6 +6,7 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
@@ -19,7 +20,10 @@ import java.util.function.Function;
 @Service
 public class JwtService {
 
-    private String secretKey = "";
+    @Value("${jwt_key_2}")
+    private String secretKey;
+
+    /*private String secretKey = "";
 
     public JwtService(){
         try {
@@ -29,7 +33,7 @@ public class JwtService {
         } catch (NoSuchAlgorithmException e) {
             throw new RuntimeException(e);
         }
-    }
+    }*/
 
     public String generateToken(Employee currentUser) {
 
@@ -41,7 +45,7 @@ public class JwtService {
                 .add(customClaims)
                 .subject(currentUser.getEmail())
                 .issuedAt(new Date(System.currentTimeMillis()))
-                .expiration(new Date(System.currentTimeMillis() + 60*60*60*30))
+                .expiration(new Date(System.currentTimeMillis() + 2*60*60*1000))
                 .and()
                 .signWith(getKey())
                 .compact();
