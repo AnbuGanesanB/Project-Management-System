@@ -65,7 +65,7 @@ public class AttachmentService {
 
             linkEntity.accept(attachment);
 
-            attachment = attachmentRepo.save(attachment);
+            //attachment = attachmentRepo.save(attachment);
 
         } catch (IOException e) {
             e.printStackTrace();

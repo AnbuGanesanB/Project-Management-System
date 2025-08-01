@@ -2,20 +2,24 @@ package com.Anbu.TaskManagementSystem.service;
 
 import com.Anbu.TaskManagementSystem.Repository.EmployeeRepo;
 import com.Anbu.TaskManagementSystem.Repository.ProjectRepository;
-import com.Anbu.TaskManagementSystem.exception.EmployeeException;
 import com.Anbu.TaskManagementSystem.exception.ProjectException;
+import com.Anbu.TaskManagementSystem.model.attachment.Attachment;
+import com.Anbu.TaskManagementSystem.model.attachment.AttachmentDTO;
+import com.Anbu.TaskManagementSystem.model.attachment.AttachmentMapper;
 import com.Anbu.TaskManagementSystem.model.employee.Employee;
+import com.Anbu.TaskManagementSystem.model.employee.EmployeeDetailsDTO;
+import com.Anbu.TaskManagementSystem.model.employee.EmployeeMapper;
 import com.Anbu.TaskManagementSystem.model.employee.EmploymentStatus;
 import com.Anbu.TaskManagementSystem.model.project.NewProjectDTO;
 import com.Anbu.TaskManagementSystem.model.project.Project;
+import com.Anbu.TaskManagementSystem.model.project.ProjectDetailsDto;
 import com.Anbu.TaskManagementSystem.model.project.ProjectMapper;
 import com.Anbu.TaskManagementSystem.model.ticket.TicketMapper;
 import com.Anbu.TaskManagementSystem.model.ticket.TicketRetrieveDTO;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
-import org.hibernate.exception.ConstraintViolationException;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -24,135 +28,94 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ProjectService {
 
-    private final EmployeeRepo employeeRepo;
+    private final AttachmentService attachmentService;
     private final ProjectMapper projectMapper;
     private final TicketMapper ticketMapper;
+    private final EmployeeMapper employeeMapper;
     private final ProjectRepository projectRepository;
     private final EmployeeService employeeService;
+    private final AttachmentMapper attachmentMapper;
 
     @Transactional
-    public void createNewProject(NewProjectDTO newProjectDTO) throws InterruptedException {
+    public Project createNewProject(NewProjectDTO newProjectDTO) {
 
-        /*lock.lock();  // Locking with ReentrantLock
-        try {
-            Thread.sleep(30000); // Simulating delay
-
-            if (projectRepository.existsByAcronym(newProjectDTO.getAcronym())) {
-                throw new ProjectException.ProjectAlreadyExistsException("Acronym is Used by another project!!");
-            }
-
-            if (projectRepository.existsByProjectName(newProjectDTO.getProjectName())) {
-                throw new ProjectException.ProjectAlreadyExistsException("Project Already exists!!");
-            }
-
-            try {
-                Project newProject = new Project();
-                newProject.setProjectName(newProjectDTO.getProjectName());
-                newProject.setAcronym(newProjectDTO.getAcronym());
-                projectRepository.save(newProject);
-            } catch (DataIntegrityViolationException e) {
-                throw new DataIntegrityViolationException("An unknown error occurred during Project creation.");
-            }
-        } finally {
-            lock.unlock();  // Unlocking the lock
-        }*/
-
-            if (projectRepository.existsByAcronym(newProjectDTO.getAcronym())) {
-                throw new ProjectException.ProjectAlreadyExistsException("Acronym is Used by another project!!");
-            }
-            if (projectRepository.existsByProjectName(newProjectDTO.getProjectName())) {
-                throw new ProjectException.ProjectAlreadyExistsException("Project Already exists!!");
-            }
-            try {
-                Project newProject = new Project();
-                newProject.setProjectName(newProjectDTO.getProjectName());
-                newProject.setAcronym(newProjectDTO.getAcronym());
-                projectRepository.save(newProject);
-            } catch (DataIntegrityViolationException e) {
-                throw new DataIntegrityViolationException("An unknown error occurred during Project creation.");
-            }
-    }
-
-    @Transactional
-    public void addAdminToProject(String projAcronym, String newAdmin){
-        Project project = getProjectByAcronym(projAcronym);
-        List<Employee> currentAdmins = project.getProjectAdmins();
-        Employee employee = employeeService.getEmployeeByEmpId(newAdmin);
-        if(isEmployeeAddable(employee,currentAdmins,"Admin")){
-            currentAdmins.add(employee);
-            project.setProjectAdmins(currentAdmins);
-            projectRepository.save(project);
+        if (projectRepository.existsByAcronym(newProjectDTO.getAcronym())) {
+            throw new ProjectException.ProjectAlreadyExistsException("Acronym is Used by another project!!");
         }
-    }
-
-    @Transactional
-    public void addMemberToProject(String projAcronym, String newMember) {
-        Project project = getProjectByAcronym(projAcronym);
-        List<Employee> currentMembers = project.getMembers();
-        Employee employee = employeeService.getEmployeeByEmpId(newMember);
-        if(isEmployeeAddable(employee,currentMembers,"Member")){
-            currentMembers.add(employee);
-            project.setMembers(currentMembers);
-            projectRepository.save(project);
+        if (projectRepository.existsByProjectName(newProjectDTO.getProjectName())) {
+            throw new ProjectException.ProjectAlreadyExistsException("Project Already exists!!");
         }
+        Project newProject = new Project();
+
+        newProject.setProjectName(newProjectDTO.getProjectName());
+        newProject.setAcronym(newProjectDTO.getAcronym());
+        return projectRepository.save(newProject);
+    }
+
+    public Project editProject(int projectId, NewProjectDTO projectUpdate) {
+        Project updatedProject = getProjectById(projectId);
+
+        if (projectRepository.existsByAcronymAndIdNot(projectUpdate.getAcronym(),projectId)) {
+            throw new ProjectException.ProjectAlreadyExistsException("Acronym is Used by another project!!");
+        }
+        if (projectRepository.existsByProjectNameAndIdNot(projectUpdate.getProjectName(),projectId)) {
+            throw new ProjectException.ProjectAlreadyExistsException("Project Already exists!!");
+        }
+
+        updatedProject.setProjectName(projectUpdate.getProjectName());
+        updatedProject.setAcronym(projectUpdate.getAcronym());
+        return projectRepository.save(updatedProject);
     }
 
     @Transactional
-    public void removeAdminFromProject(String projAcronym, String empId){
-        Project project = getProjectByAcronym(projAcronym);
-        if(!project.getProjectAdmins().remove(employeeService.getEmployeeByEmpId(empId))){
-            throw new ProjectException.UserNotFoundException("User is not Admin of this Project");
+    public void addParticipantToProject(int projectId, int participantId, String role){
+        Project project = getProjectById(projectId);
+        Employee employee = employeeService.getEmployeeById(participantId);
+
+        if(role.equalsIgnoreCase("admin")){
+            checkIsEmployeeAddable(employee,project.getProjectAdmins(),role);
+            project.getProjectAdmins().add(employee);
+
+        }else if(role.equalsIgnoreCase("member")){
+            checkIsEmployeeAddable(employee,project.getMembers(),role);
+            project.getMembers().add(employee);
+
+        }else {
+            throw new ProjectException.InvalidInputException("Please Provide Valid Input");
         }
         projectRepository.save(project);
     }
 
     @Transactional
-    public void removeMemberFromProject(String projAcronym, String empId){
-        Project project = getProjectByAcronym(projAcronym);
-        if(!project.getMembers().remove(employeeService.getEmployeeByEmpId(empId))){
-            throw new ProjectException.UserNotFoundException("User is not Member of this Project");
+    public void removeParticipantFromProject(int projectId, int participantId, String role){
+        Project project = getProjectById(projectId);
+        if(role.equalsIgnoreCase("admin")){
+
+            if(!project.getProjectAdmins().remove(employeeService.getEmployeeById(participantId))){
+                throw new ProjectException.UserNotFoundException("User already not Admin of this Project");
+            }
+        }else if(role.equalsIgnoreCase("member")){
+
+            if(!project.getMembers().remove(employeeService.getEmployeeById(participantId))){
+                throw new ProjectException.UserNotFoundException("User already not Member of this Project");
+            }
+        }else {
+            throw new ProjectException.InvalidInputException("Please Provide Valid Input");
         }
         projectRepository.save(project);
     }
 
-    public List<String> getProjectAdmins(String projAcronym){
-        Project project = getProjectByAcronym(projAcronym);
-        return project.getProjectAdmins().stream().map(employee->employee.getEmpId()+":"+employee.getUsername()).toList();
-    }
+    public Map<String,List<EmployeeDetailsDTO>> getAllProjectMembers(int projectId){
+        Map<String,List<EmployeeDetailsDTO>> allMembers = new HashMap<>();
+        Project project = getProjectById(projectId);
+        allMembers.putIfAbsent("ProjectAdmins",project.getProjectAdmins().stream().map(employeeMapper::getIndividualEmployeeDetails).toList());
+        allMembers.putIfAbsent("ProjectMembers",project.getMembers().stream().map(employeeMapper::getIndividualEmployeeDetails).toList());
 
-    public List<String> getProjectMembers(String projAcronym){
-        Project project = getProjectByAcronym(projAcronym);
-        return project.getMembers().stream().map(employee->employee.getEmpId()+":"+employee.getUsername()).toList();
-    }
-
-    public Map<String,List<String>> getAllProjectMembers(String projAcronym){
-        Map<String,List<String>> allMembers = new HashMap<>();
-        allMembers.putIfAbsent("ProjectAdmins",getProjectAdmins(projAcronym));
-        allMembers.putIfAbsent("ProjectMembers",getProjectMembers(projAcronym));
         return allMembers;
     }
 
-    public List<String> getNonAdmins(String projAcronym){
-        Project project = getProjectByAcronym(projAcronym);
-        List<Employee> allEmployees = employeeRepo.findByEmpStatus(EmploymentStatus.ACTIVE);
-        return allEmployees.stream().filter(employee -> !(project.getProjectAdmins().contains(employee))).map(employee->employee.getEmpId()+":"+employee.getUsername()).collect(Collectors.toList());
-    }
-
-    public List<String> getNonMembers(String projAcronym){
-        Project project = getProjectByAcronym(projAcronym);
-        List<Employee> allEmployees = employeeRepo.findByEmpStatus(EmploymentStatus.ACTIVE);
-        return allEmployees.stream().filter(employee -> !(project.getMembers().contains(employee))).map(employee->employee.getEmpId()+":"+employee.getUsername()).collect(Collectors.toList());
-    }
-
-    public Map<String,List<String>> getProjectNonParticipants(String projAcronym){
-        Map<String,List<String>> nonParticipants = new HashMap<>();
-        nonParticipants.putIfAbsent("Not_ProjectAdmins",getNonAdmins(projAcronym));
-        nonParticipants.putIfAbsent("Not_ProjectMembers",getNonMembers(projAcronym));
-        return nonParticipants;
-    }
-
-    public List<String> getAllProjects(){
-        return projectRepository.findAll().stream().map(project -> project.getAcronym()+":"+project.getProjectName()).collect(Collectors.toList());
+    public List<ProjectDetailsDto> getAllProjects(){
+        return projectRepository.findAll().stream().map(projectMapper::retrieveProjectDetails).collect(Collectors.toList());
     }
 
     public List<TicketRetrieveDTO> getProjectTickets(String projAcronym){
@@ -160,21 +123,44 @@ public class ProjectService {
         return project.getTickets().stream().map(ticketMapper::getTicket).collect(Collectors.toList());
     }
 
-    boolean isEmployeeAddable(Employee employee, List<Employee> targetList, String projectRole){
-        if(targetList.contains(employee)){
-            throw new ProjectException.DuplicateRecordException("Employee is already "+projectRole+" of this Project");
-        }
-        else if(employee.getRole().name().equalsIgnoreCase("admin")){
-            throw new ProjectException.EmployeeNotSuitableException("Admin user can't be addded");
-        }
-        else if(employee.getEmpStatus().name().equalsIgnoreCase("inactive")){
+    void checkIsEmployeeAddable(Employee employee, List<Employee> targetList, String projectRole){
+
+        if(employee.getEmpStatus().name().equalsIgnoreCase("inactive")){
             throw new ProjectException.EmployeeNotSuitableException("User is Inactive");
         }
-        return true;
+        else if(employee.getRole().name().equalsIgnoreCase("admin")){
+            throw new ProjectException.EmployeeNotSuitableException(employee.getUsername()+ "is an Admin. Can't be added");
+        }
+        else if(targetList.contains(employee)){
+            throw new ProjectException.DuplicateRecordException("Employee is already "+projectRole.toLowerCase()+" of this Project");
+        }
+    }
+
+    public void deleteProject(int projectId){
+        projectRepository.deleteById(projectId);
     }
 
     public Project getProjectByAcronym(String projAcronym){
         return projectRepository.findByAcronym(projAcronym).orElseThrow(()->new ProjectException.ProjectNotFoundException("No such Project found"));
     }
+
+    public Project getProjectById(int id){
+        return projectRepository.findById(id).orElseThrow(()->new ProjectException.ProjectNotFoundException("No Project found"));
+    }
+
+    public List<AttachmentDTO> addAttachments(int projectId, List<MultipartFile> files) {
+        if(files == null || files.isEmpty())
+            throw new ProjectException.InvalidInputException("Files not selected");
+
+        Project project = getProjectById(projectId);
+        List<AttachmentDTO> attachmentDTOS = new ArrayList<>();
+
+        for(MultipartFile file: files){
+            Attachment attachment = attachmentService.saveFiles(project,file);
+            attachmentDTOS.add(attachmentMapper.provideAttachmentDto(attachment));
+        }
+        return attachmentDTOS;
+    }
+
 }
 

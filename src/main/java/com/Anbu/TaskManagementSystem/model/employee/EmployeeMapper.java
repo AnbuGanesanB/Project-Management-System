@@ -10,6 +10,7 @@ public class EmployeeMapper {
 
     public Employee createEmployeeFromDto(EmployeeCreationDTO employeeCreationDTO){
         Employee employee = new Employee();
+
         employee.setUsername(employeeCreationDTO.getUsername());
         employee.setPassword(employeeCreationDTO.getUsername());
         employee.setRole(Role.valueOf(employeeCreationDTO.getRole().toUpperCase()));
@@ -21,6 +22,8 @@ public class EmployeeMapper {
 
     public EmployeeDetailsDTO getIndividualEmployeeDetails(Employee employee){
         EmployeeDetailsDTO employeeDetailsDTO = new EmployeeDetailsDTO();
+
+        employeeDetailsDTO.setId(employee.getId());
         employeeDetailsDTO.setEmpId(employee.getEmpId());
         employeeDetailsDTO.setName(employee.getUsername());
         employeeDetailsDTO.setEmail(employee.getEmail());

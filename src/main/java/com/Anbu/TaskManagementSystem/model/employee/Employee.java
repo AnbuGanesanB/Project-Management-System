@@ -9,6 +9,7 @@ import lombok.NoArgsConstructor;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
@@ -45,16 +46,16 @@ public class Employee implements UserDetails{
     private EmploymentStatus empStatus;
 
     @ManyToMany(mappedBy = "projectAdmins", fetch = FetchType.LAZY)
-    private List<Project> projectsManaging;
+    private List<Project> projectsManaging = new ArrayList<>();
 
     @ManyToMany(mappedBy = "members", fetch = FetchType.LAZY)
-    private List<Project> projectsWorking;
+    private List<Project> projectsWorking = new ArrayList<>();
 
-    @OneToMany(mappedBy = "createdBy")
-    private List<Ticket> createdTickets;
+    @OneToMany(mappedBy = "createdBy", cascade = {CascadeType.PERSIST,CascadeType.MERGE})
+    private List<Ticket> createdTickets = new ArrayList<>();
 
-    @OneToMany(mappedBy = "assignee")
-    private List<Ticket> assignedTickets;
+    @OneToMany(mappedBy = "assignee", cascade = {CascadeType.PERSIST,CascadeType.MERGE})
+    private List<Ticket> assignedTickets = new ArrayList<>();
 
     @Override
     public boolean equals(Object o) {

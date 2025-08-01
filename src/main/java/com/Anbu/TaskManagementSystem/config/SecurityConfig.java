@@ -39,12 +39,12 @@ public class SecurityConfig {
                 .cors(corsConfig -> corsConfig.configurationSource(customCorsConfig))
                 .csrf(customizer -> customizer.disable())   //Controlling access for Employee related endpoints here - own preference
                 .authorizeHttpRequests(request -> request
-                                                    .requestMatchers("/v1/login","/v1/login2")
+                                                    .requestMatchers("/v1/auth/login")
                                                     .permitAll()
-                                                    .requestMatchers(HttpMethod.POST,"/v1/employees/**").hasRole(ADMIN.name())
-                                                    .requestMatchers(HttpMethod.PATCH,"/v1/employees/**").hasRole(ADMIN.name())
-                                                    .requestMatchers(HttpMethod.GET,"/v1/employees","/v1/employees/employee/**").hasAuthority(EMPLOYEE_VIEW.name())
-                                                    .requestMatchers("v1/profile","v1/profile/**").hasAuthority(OWN_PROFILE.name())
+                                                    .requestMatchers(HttpMethod.POST,"/v1/employees","/v1/employees/**").hasRole(ADMIN.name())
+                                                    .requestMatchers(HttpMethod.PATCH,"/v1/employees","/v1/employees/**").hasRole(ADMIN.name())
+                                                    .requestMatchers(HttpMethod.GET,"/v1/employees","/v1/employees/**").hasAuthority(EMPLOYEE_VIEW.name())
+                                                    .requestMatchers("/v1/me","/v1/me/**").hasAuthority(OWN_PROFILE.name())
                                                     .anyRequest().authenticated())
                 .httpBasic(Customizer.withDefaults())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

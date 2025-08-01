@@ -69,19 +69,15 @@ public class EmployeeService {
     }
 
     @Transactional
-    public void addNewEmployee(EmployeeCreationDTO employeeCreationDTO){
+    public Employee addNewEmployee(EmployeeCreationDTO employeeCreationDTO){
         if (employeeRepo.existsByEmail(employeeCreationDTO.getEmail())) {
             throw new EmployeeException.EmailAlreadyExistsException("Email already exists. Please choose another.");
         }
         if (employeeRepo.existsByEmpId(employeeCreationDTO.getEmpId())) {
             throw new EmployeeException.EmpIdAlreadyExistsException("Employee ID already exists. Please choose another.");
         }
-        try {
-            Employee employee = employeeMapper.createEmployeeFromDto(employeeCreationDTO);
-            employeeRepo.save(employee);
-        } catch (DataIntegrityViolationException e) {
-            throw new DataIntegrityViolationException("An unknown error occurred during employee creation.");
-        }
+        Employee employee = employeeMapper.createEmployeeFromDto(employeeCreationDTO);
+        return employeeRepo.save(employee);
     }
 
     public boolean isEmployeeAvailable(Employee employee){
@@ -90,29 +86,19 @@ public class EmployeeService {
     }
 
     @Transactional
-    public void updateEmployeeDetail(String empId, EmployeeUpdationsDTO employeeUpdationsDTO){
+    public Employee updateEmployeeDetail(int id, EmployeeUpdationsDTO employeeUpdationsDTO){
 
-        Employee employee = getEmployeeByEmpId(empId);
-        if(employeeUpdationsDTO.getUsername() != null){
-            employee.setUsername(employeeUpdationsDTO.getUsername());
+        Employee employee = getEmployeeById(id);
+
+        if (employeeRepo.existsByEmailAndIdNot(employeeUpdationsDTO.getEmail(),id)) {
+            throw new EmployeeException.EmailAlreadyExistsException("Email already exists. Please provide another.");
         }
-        if(employeeUpdationsDTO.getRole() != null){
-            employee.setRole(Role.valueOf(employeeUpdationsDTO.getRole().toUpperCase()));
-        }
-        if(employeeUpdationsDTO.getStatus() != null){
-            employee.setEmpStatus(EmploymentStatus.valueOf(employeeUpdationsDTO.getStatus().toUpperCase()));
-        }
-        if(employeeUpdationsDTO.getEmail() != null){
-            if (employeeRepo.existsByEmail(employeeUpdationsDTO.getEmail())) {
-                throw new EmployeeException.EmailAlreadyExistsException("Email already exists. Please choose another.");
-            }
-            employee.setEmail(employeeUpdationsDTO.getEmail());
-        }
-        try{
-            employeeRepo.save(employee);
-        }catch (DataIntegrityViolationException e) {
-            throw new DataIntegrityViolationException("An unknown error occurred during employee creation.");
-        }
+        employee.setEmail(employeeUpdationsDTO.getEmail());
+        employee.setUsername(employeeUpdationsDTO.getUsername());
+        employee.setRole(Role.valueOf(employeeUpdationsDTO.getRole().toUpperCase()));
+        employee.setEmpStatus(EmploymentStatus.valueOf(employeeUpdationsDTO.getStatus().toUpperCase()));
+
+        return employeeRepo.save(employee);
     }
 
     @Transactional
@@ -136,6 +122,11 @@ public class EmployeeService {
 
     public Employee getCurrentUser(){
         return employeeRepo.findByUsername(jwtAuthFilter.getCurrentUser())
+                .orElseThrow(()->new UsernameNotFoundException("User not found"));
+    }
+
+    public Employee getEmployeeById(int id){
+        return employeeRepo.findById(id)
                 .orElseThrow(()->new UsernameNotFoundException("User not found"));
     }
 

@@ -11,7 +11,12 @@ public interface ProjectRepository extends JpaRepository<Project, Integer> {
 
     Optional<Project> findByAcronym(String acronym);
 
+    Optional<Project> findById(int id);
+
     boolean existsByAcronym(String acronym);
+    boolean existsByAcronymAndIdNot(String acronym, int id);
 
     boolean existsByProjectName(String projectName);
+    boolean existsByProjectNameAndIdNot(String projectName, int id);
+
 }

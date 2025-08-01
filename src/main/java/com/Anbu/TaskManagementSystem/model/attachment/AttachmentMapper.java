@@ -15,6 +15,7 @@ public class AttachmentMapper {
     public AttachmentDTO provideAttachmentDto(Attachment attachment){
         AttachmentDTO attachmentDTO = new AttachmentDTO();
 
+        attachmentDTO.setId(attachment.getId());
         attachmentDTO.setOriginalFileName(attachment.getOriginalFileName());
         attachmentDTO.setUniqueFileName(attachment.getUniqueFileName());
 

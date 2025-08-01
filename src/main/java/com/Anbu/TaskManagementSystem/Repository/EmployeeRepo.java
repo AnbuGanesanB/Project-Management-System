@@ -21,6 +21,8 @@ public interface EmployeeRepo extends JpaRepository<Employee,Integer> {
 
     Optional<Employee> findByEmpId(String empId);
 
+    Optional<Employee> findById(int id);
+
     Optional<Employee> findByEmail(String email);
 
     List<Employee> findAll();
@@ -31,6 +33,8 @@ public interface EmployeeRepo extends JpaRepository<Employee,Integer> {
     List<Employee> findByEmpStatus(EmploymentStatus empStatus);
 
     boolean existsByEmail(String email);
+
+    boolean existsByEmailAndIdNot(String email, int id);
 
     boolean existsByEmpId(String empId);
 }

@@ -17,22 +17,26 @@ import java.util.Map;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/v1/")
+@RequestMapping("/v1")
 public class TicketController {
 
     private final TicketService ticketService;
     private final TicketMapper ticketMapper;
-    private final AttachmentService attachmentService;
 
     @PreAuthorize("hasAuthority('TICKET_CREATE')")
-    @PostMapping("/projects/{projAcronym}/add_ticket")
-    public String createTicket(@PathVariable("projAcronym")String projAcronym, @RequestBody NewTicketDTO newTicketDTO){
-        ticketService.createNewTicket(projAcronym,newTicketDTO);
-        return "Ticket created";
+    @PostMapping("/projects/{projectId}/tickets")
+    public TicketRetrieveDTO createTicket(@PathVariable("projectId")int projectId, @RequestBody NewTicketDTO newTicketDTO){
+        return ticketMapper.getTicket(ticketService.createNewTicket(projectId,newTicketDTO));
+    }
+
+    @PreAuthorize("hasAuthority('TICKET_VIEW')")
+    @GetMapping("/tickets/{ticketId}")
+    public TicketRetrieveDTO getTicketDetails(@PathVariable("ticketId")Integer ticketId){
+        return ticketMapper.getTicket(ticketService.getTicketById(ticketId));
     }
 
     @PreAuthorize("hasAuthority('TICKET_UPDATE')")
-    @PostMapping("/projects/tickets/{ticketId}")
+    @PostMapping("/tickets/{ticketId}")
     public ResponseEntity<?> updateTicket(@RequestParam("ticketId") Integer ticketId,
                                        @RequestParam("attribute") String attribute,
                                        @RequestParam(value = "files",required = false) List<MultipartFile> files,
@@ -41,25 +45,19 @@ public class TicketController {
     }
 
     @PreAuthorize("hasAuthority('TICKET_VIEW')")
-    @GetMapping("/projects/tickets/{ticketId}")
-    public TicketRetrieveDTO getTicketDetails(@PathVariable("ticketId")Integer ticketId){
-        return ticketMapper.getTicket(ticketService.getTicketById(ticketId));
-    }
-
-    @PreAuthorize("hasAuthority('TICKET_VIEW')")
-    @DeleteMapping("tickets/{ticketId}")
+    @DeleteMapping("/tickets/{ticketId}")
     public void deleteTicket(@PathVariable("ticketId")Integer ticketId){
         ticketService.deleteTicket(ticketId);
     }
 
     @PreAuthorize("hasAuthority('TICKET_VIEW')")
-    @GetMapping("tickets")
-    public List<TicketRetrieveDTO> getAllProjectTickets(@PathVariable(value = "acronym", required = false) String projAcronym,
+    @GetMapping("/tickets")
+    public List<TicketRetrieveDTO> getAllProjectTickets(@RequestParam(value = "projectId", required = false) int projectId,
                                                         @RequestParam(value = "type", required = false) String types,
                                                         @RequestParam(value = "status", required = false) String statuses,
-                                                        @RequestParam(value = "createdBy", required = false) String createdBy,
-                                                        @RequestParam(value = "assignee", required = false) String assignee){
+                                                        @RequestParam(value = "createdByEmp", required = false) int createdByEmp,
+                                                        @RequestParam(value = "assigneeEmp", required = false) int assigneeEmp){
 
-        return ticketService.getAllTickets(projAcronym,types,statuses,createdBy,assignee);
+        return ticketService.getAllTickets(projectId,types,statuses,createdByEmp,assigneeEmp);
     }
 }

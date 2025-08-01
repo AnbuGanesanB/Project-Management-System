@@ -9,15 +9,22 @@ import lombok.Data;
 @Data
 public class EmployeeUpdationsDTO {
 
-
+    @NotBlank(message = "Username should not be blank")
+    @NotEmpty(message = "Username should not be empty")
     private String username;
 
+    @NotBlank(message = "Role should not be blank")
+    @NotEmpty(message = "Role should not be empty")
     @Pattern(regexp = "^(?i)(ADMIN|USER|MANAGER)$", message = "please provide valid role")
     private String role;
 
+    @NotBlank(message = "Status should not be blank")
+    @NotEmpty(message = "Status should not be empty")
     @Pattern(regexp = "^(?i)(ACTIVE|INACTIVE)$", message = "please provide valid status")
     private String status;
 
+    @NotBlank(message = "Email should not be blank")
+    @NotEmpty(message = "Email should not be empty")
     @Email(message = "Please enter valid email")
     private String email;
 }

@@ -20,7 +20,7 @@ import java.util.stream.Collectors;
 //@CrossOrigin("*")
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/v1/")
+@RequestMapping("/v1")
 public class EmployeeController {
 
     private final EmployeeService employeeService;
@@ -29,27 +29,27 @@ public class EmployeeController {
     private final EmployeeMapper employeeMapper;
     
 
-    @PostMapping("login")
+    @PostMapping("/auth/login")
     public ResponseEntity<Map<String, String>> login(@RequestBody EmployeeLoginDTO employeeLoginDTO){
         return employeeService.authenticateEmployee(employeeLoginDTO);
     }
 
     @ResponseStatus(HttpStatus.CREATED)
-    @PostMapping("employees/create_employee")
-    public String createEmployee(@RequestBody @Valid EmployeeCreationDTO employeeCreationDTO){
-        employeeService.addNewEmployee(employeeCreationDTO);
-        return "Employee Created";
+    @PostMapping("/employees")
+    public EmployeeDetailsDTO createEmployee(@RequestBody @Valid EmployeeCreationDTO employeeCreationDTO){
+
+        Employee employee = employeeService.addNewEmployee(employeeCreationDTO);
+        return employeeMapper.getIndividualEmployeeDetails(employee);
     }
 
     @ResponseStatus(HttpStatus.ACCEPTED)
-    @PatchMapping("employees/edit_employee/{empId}")
-    public String updateEmployeeDetails(@PathVariable("empId") String empId, @RequestBody @Valid EmployeeUpdationsDTO employeeUpdationsDTO){
-        employeeService.updateEmployeeDetail(empId, employeeUpdationsDTO);
-        return "Employee Updated Successfully";
+    @PatchMapping("/employees/{id}")
+    public EmployeeDetailsDTO updateEmployeeDetails(@PathVariable("id") int id, @RequestBody @Valid EmployeeUpdationsDTO employeeUpdationsDTO){
+        Employee employee = employeeService.updateEmployeeDetail(id, employeeUpdationsDTO);
+        return employeeMapper.getIndividualEmployeeDetails(employee);
     }
 
-
-    @GetMapping("employees")
+    @GetMapping("/employees")
     public List<EmployeeDetailsDTO> getAllEmployeeDetails(@RequestParam(value = "status", required = false) String status,
                                                           @RequestParam(value = "role", required = false) String role,
                                                           Authentication authentication){
@@ -88,16 +88,9 @@ public class EmployeeController {
                 .collect(Collectors.toList());
     }
 
-    @ResponseStatus(HttpStatus.ACCEPTED)
-    @PatchMapping("profile/security")
-    public String updatePassword(@RequestBody PasswordChangeDTO passwordChangeDTO){
-        employeeService.updatePassword(jwtAuthFilter.getCurrentUser(), passwordChangeDTO);
-        return "Password Changed";
-    }
-
-    @GetMapping("employees/employee/{empId}")
-    public EmployeeDetailsDTO getEmployeeDetail(@PathVariable String empId, Authentication authentication){
-        Employee employee = employeeService.getEmployeeByEmpId(empId);
+    @GetMapping("/employees/{id}")
+    public EmployeeDetailsDTO getEmployeeDetail(@PathVariable int id, Authentication authentication){
+        Employee employee = employeeService.getEmployeeById(id);
         if(authentication.getAuthorities().stream().anyMatch(authority -> authority.getAuthority().equals("ROLE_MANAGER"))
             && (employee.getRole().name().equalsIgnoreCase("ADMIN"))){
             throw new AccessDeniedException("Manager can't view Admin Users");
@@ -105,7 +98,13 @@ public class EmployeeController {
         return employeeMapper.getIndividualEmployeeDetails(employee);
     }
 
-    @GetMapping("profile")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    @PatchMapping("/me/password")
+    public void updatePassword(@RequestBody PasswordChangeDTO passwordChangeDTO){
+        employeeService.updatePassword(jwtAuthFilter.getCurrentUser(), passwordChangeDTO);
+    }
+
+    @GetMapping("/me")
     public EmployeeDetailsDTO getOwnDetail(Authentication authentication){
         Employee employee = (Employee)authentication.getPrincipal();
         return employeeMapper.getIndividualEmployeeDetails(employeeService.getEmployeeByEmpId(employee.getEmpId()));

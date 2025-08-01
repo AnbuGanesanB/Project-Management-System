@@ -8,6 +8,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
@@ -29,18 +30,18 @@ public class Project {
     private String acronym;
 
     @ManyToMany(fetch = FetchType.LAZY, cascade = {CascadeType.MERGE,CascadeType.PERSIST})
-    @JoinTable(name = "project_members", joinColumns = @JoinColumn(name="project_id"),inverseJoinColumns = @JoinColumn(name = "mem_id"))
-    private List<Employee> members;
+    @JoinTable(name = "project_admins", joinColumns = @JoinColumn(name="project_id"),inverseJoinColumns = @JoinColumn(name = "pro_adm_id"))
+    private List<Employee> projectAdmins = new ArrayList<>();
 
     @ManyToMany(fetch = FetchType.LAZY, cascade = {CascadeType.MERGE,CascadeType.PERSIST})
-    @JoinTable(name = "project_admins", joinColumns = @JoinColumn(name="project_id"),inverseJoinColumns = @JoinColumn(name = "pro_adm_id"))
-    private List<Employee> projectAdmins;
+    @JoinTable(name = "project_members", joinColumns = @JoinColumn(name="project_id"),inverseJoinColumns = @JoinColumn(name = "mem_id"))
+    private List<Employee> members = new ArrayList<>();
 
-    @OneToMany(mappedBy = "project")
-    private List<Ticket> tickets;
+    @OneToMany(mappedBy = "project",cascade = CascadeType.ALL)
+    private List<Ticket> tickets = new ArrayList<>();
 
-    @OneToMany(mappedBy = "project")
-    private List<Attachment> attachment;
+    @OneToMany(mappedBy = "project",cascade = CascadeType.ALL)
+    private List<Attachment> attachment = new ArrayList<>();
 
     @Override
     public boolean equals(Object o) {

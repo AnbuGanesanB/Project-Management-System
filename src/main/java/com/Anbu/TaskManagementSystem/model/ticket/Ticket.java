@@ -53,10 +53,10 @@ public class Ticket {
     @ManyToOne
     private Employee assignee;
 
-    @OneToMany(mappedBy = "ticket", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "ticket", cascade = CascadeType.ALL)
     private List<TicketHistory> histories = new ArrayList<>();
 
-    @OneToMany(mappedBy = "ticket")
+    @OneToMany(mappedBy = "ticket",cascade = CascadeType.ALL)
     private List<Attachment> attachment = new ArrayList<>();
 
     @Override

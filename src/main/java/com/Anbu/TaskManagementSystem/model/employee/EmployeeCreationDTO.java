@@ -27,5 +27,4 @@ public class EmployeeCreationDTO {
     @Email(message = "Please enter valid email")
     private String email;
 
-    //private String status;            By default - Active when created. so, no needed
 }

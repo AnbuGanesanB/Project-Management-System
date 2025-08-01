@@ -38,8 +38,8 @@ public class TicketService {
     private final TicketHistoryService historyService;
 
 
-    public void createNewTicket(String projAcronym, NewTicketDTO newTicketDTO){
-        Project targetProject = projectService.getProjectByAcronym(projAcronym);
+    public Ticket createNewTicket(int projectId, NewTicketDTO newTicketDTO){
+        Project targetProject = projectService.getProjectById(projectId);
         Employee currentUser = employeeService.getCurrentUser();
 
         checkUserAuthorisedToCreateOrUpdateTicket(currentUser,targetProject);
@@ -64,7 +64,7 @@ public class TicketService {
         ticketHistory.setTicketAttribute(TicketAttribute.CREATE);
         //ticketHistoryRepo.save(ticketHistory);
         ticket.getHistories().add(ticketHistory);
-        ticketRepository.save(ticket);
+        return ticketRepository.save(ticket);
     }
 
     @Transactional
@@ -154,7 +154,7 @@ public class TicketService {
             }
             default -> throw new TicketException.NotValidInputException("Provide valid Attribute");
         }
-        historiesToSave = ticketHistoryRepo.saveAll(historiesToSave);
+        //historiesToSave = ticketHistoryRepo.saveAll(historiesToSave);
 
         currentTicket.getHistories().addAll(historiesToSave);
         currentTicket.setUpdatedOn(currentTime);
@@ -179,13 +179,38 @@ public class TicketService {
         ticketRepository.delete(ticket);
     }
 
-    public List<TicketRetrieveDTO> getAllTickets(String projAcronym, String types, String statuses, String createdBy, String assignee) {
+    public List<TicketRetrieveDTO> getAllTickets(Integer projectId, String types, String statuses, Integer createdByEmp, Integer assignedEmp) {
 
-        Project project = (projAcronym != null && !projAcronym.isEmpty()) ? projectService.getProjectByAcronym(projAcronym) : null;
-        List<String> typeList = (types != null && !types.isEmpty()) ? Arrays.asList(types.split(",")) : null;
-        List<String> statusList = (statuses != null && !statuses.isEmpty()) ? Arrays.asList(statuses.split(",")) : null;
-        Employee createdById = (createdBy != null && !createdBy.isEmpty()) ? employeeService.getEmployeeByEmpId(createdBy) : null;
-        Employee assigneeId = (assignee != null && !assignee.isEmpty()) ? employeeService.getEmployeeByEmpId(assignee) : null;
+        Project project = projectId != null ? projectService.getProjectById(projectId) : null;
+
+        List<String> typeList = (types != null && !types.isEmpty())
+                                ? Arrays.stream(types.split(","))
+                                        .map(String::trim)
+                                        .filter(s -> !s.isEmpty())
+                                        .collect(Collectors.toList())
+                                : null;
+
+        List<String> statusList = (statuses != null && !statuses.isEmpty())
+                                ? Arrays.stream(statuses.split(","))
+                                        .map(String::trim)
+                                        .filter(s -> !s.isEmpty())
+                                        .collect(Collectors.toList())
+                                : null;
+
+        Employee createdById = createdByEmp != null ? employeeService.getEmployeeById(createdByEmp) : null;
+        Employee assigneeId = assignedEmp != null ? employeeService.getEmployeeById(assignedEmp) : null;
+
+        if(typeList != null){
+            for(String type: typeList){
+                ticketAttributeValidator.validateValue(TicketAttribute.TYPE,type.toUpperCase());
+            }
+        }
+
+        if(statusList != null){
+            for(String status: statusList){
+                ticketAttributeValidator.validateValue(TicketAttribute.STATUS,status.toUpperCase());
+            }
+        }
 
         return ticketRepository.findByFilters(typeList,statusList,project,assigneeId,createdById)
                 .stream().map(ticketMapper::getTicket).collect(Collectors.toList());
