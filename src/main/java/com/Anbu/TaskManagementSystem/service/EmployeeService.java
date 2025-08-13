@@ -1,46 +1,43 @@
 package com.Anbu.TaskManagementSystem.service;
 
 import com.Anbu.TaskManagementSystem.Repository.EmployeeRepo;
-import com.Anbu.TaskManagementSystem.Repository.ProjectRepository;
 import com.Anbu.TaskManagementSystem.config.JwtAuthFilter;
 import com.Anbu.TaskManagementSystem.exception.EmployeeException;
 import com.Anbu.TaskManagementSystem.model.employee.*;
+import com.Anbu.TaskManagementSystem.model.employee.MapperDtos.EmployeeDetailDto;
+import com.Anbu.TaskManagementSystem.model.employee.MapperDtos.EmployeeFullDetailsMapper;
 import com.Anbu.TaskManagementSystem.model.project.Project;
-import io.jsonwebtoken.security.SignatureException;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.BadCredentialsException;
-import org.springframework.security.authentication.DisabledException;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.*;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Service
 @RequiredArgsConstructor
 public class EmployeeService {
 
-    private final EmployeeMapper employeeMapper;
     private final EmployeeRepo employeeRepo;
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
-    private final ProjectRepository projectRepository;
-    private final JwtAuthFilter jwtAuthFilter;
+    private final EmployeeFullDetailsMapper employeeFullDetailsMapper;
 
     Employee currentEmployee = null;
 
     public ResponseEntity<Map<String, String>> authenticateEmployee(EmployeeLoginDTO employeeLoginDTO) {
         try {
             Authentication authentication = authenticationManager
-                    .authenticate(new UsernamePasswordAuthenticationToken(employeeLoginDTO.getEmail(), employeeLoginDTO.getPassword()));
-
-            System.out.println("Authentication result: " + authentication);
+                    .authenticate(new UsernamePasswordAuthenticationToken(employeeLoginDTO.getIdentifier(), employeeLoginDTO.getPassword()));
 
             currentEmployee = (Employee)authentication.getPrincipal();
             String token = jwtService.generateToken(currentEmployee);
@@ -56,7 +53,7 @@ public class EmployeeService {
         }catch (BadCredentialsException ex) {
 
             Map<String, String> errorResponse = new HashMap<>();
-            errorResponse.put("error", "Invalid email or password.");
+            errorResponse.put("error", "Invalid credentials.");
             return new ResponseEntity<>(errorResponse, HttpStatus.UNAUTHORIZED);
 
         } catch (DisabledException ex) {
@@ -69,74 +66,133 @@ public class EmployeeService {
     }
 
     @Transactional
-    public void addNewEmployee(EmployeeCreationDTO employeeCreationDTO){
+    public Employee addNewEmployee(EmployeeCreationDTO employeeCreationDTO){
         if (employeeRepo.existsByEmail(employeeCreationDTO.getEmail())) {
             throw new EmployeeException.EmailAlreadyExistsException("Email already exists. Please choose another.");
         }
         if (employeeRepo.existsByEmpId(employeeCreationDTO.getEmpId())) {
             throw new EmployeeException.EmpIdAlreadyExistsException("Employee ID already exists. Please choose another.");
         }
-        try {
-            Employee employee = employeeMapper.createEmployeeFromDto(employeeCreationDTO);
-            employeeRepo.save(employee);
-        } catch (DataIntegrityViolationException e) {
-            throw new DataIntegrityViolationException("An unknown error occurred during employee creation.");
-        }
-    }
+        Employee employee = new Employee();
 
-    public boolean isEmployeeAvailable(Employee employee){
-        Optional<Employee> optionalEmployee = employeeRepo.findByUsername(employee.getUsername());
-        return optionalEmployee.isPresent();
-    }
+        employee.setUsername(employeeCreationDTO.getUsername());
+        employee.setPassword(new BCryptPasswordEncoder().encode(employeeCreationDTO.getEmpId()));
+        employee.setRole(Role.valueOf(employeeCreationDTO.getRole().toUpperCase()));
+        employee.setEmpId(employeeCreationDTO.getEmpId());
+        employee.setEmpStatus(EmploymentStatus.ACTIVE);
+        employee.setEmail(employeeCreationDTO.getEmail());
 
-    @Transactional
-    public void updateEmployeeDetail(String empId, EmployeeUpdationsDTO employeeUpdationsDTO){
-
-        Employee employee = getEmployeeByEmpId(empId);
-        if(employeeUpdationsDTO.getUsername() != null){
-            employee.setUsername(employeeUpdationsDTO.getUsername());
-        }
-        if(employeeUpdationsDTO.getRole() != null){
-            employee.setRole(Role.valueOf(employeeUpdationsDTO.getRole().toUpperCase()));
-        }
-        if(employeeUpdationsDTO.getStatus() != null){
-            employee.setEmpStatus(EmploymentStatus.valueOf(employeeUpdationsDTO.getStatus().toUpperCase()));
-        }
-        if(employeeUpdationsDTO.getEmail() != null){
-            if (employeeRepo.existsByEmail(employeeUpdationsDTO.getEmail())) {
-                throw new EmployeeException.EmailAlreadyExistsException("Email already exists. Please choose another.");
-            }
-            employee.setEmail(employeeUpdationsDTO.getEmail());
-        }
-        try{
-            employeeRepo.save(employee);
-        }catch (DataIntegrityViolationException e) {
-            throw new DataIntegrityViolationException("An unknown error occurred during employee creation.");
-        }
+        return employeeRepo.save(employee);
     }
 
     @Transactional
-    public void updatePassword(String currentUsername, PasswordChangeDTO passwordChangeDTO) {
-        Employee employee = employeeRepo.findByUsername(currentUsername)
-                .orElseThrow(()->new UsernameNotFoundException("User not found"));
-        if(passwordChangeDTO.getOldPassword().equals(employee.getPassword())){
-            employee.setPassword(passwordChangeDTO.getNewPassword());
+    public Employee updateEmployeeDetail(int id, EmployeeUpdationsDTO employeeUpdationsDTO){
+
+        Employee employee = getEmployeeById(id);
+
+        if (employeeRepo.existsByEmailAndIdNot(employeeUpdationsDTO.getEmail(),id)) {
+            throw new EmployeeException.EmailAlreadyExistsException("Email already exists. Please provide another.");
+        }
+        employee.setEmail(employeeUpdationsDTO.getEmail());
+        employee.setUsername(employeeUpdationsDTO.getUsername());
+        employee.setRole(Role.valueOf(employeeUpdationsDTO.getRole().toUpperCase()));
+        employee.setEmpStatus(EmploymentStatus.valueOf(employeeUpdationsDTO.getStatus().toUpperCase()));
+
+        return employeeRepo.save(employee);
+    }
+
+    @Transactional
+    public void updatePassword(Employee employee, PasswordChangeDTO passwordChangeDTO) {
+        String oldPasswordFromDto = passwordChangeDTO.getOldPassword();
+        String oldPasswordFromDB = employee.getPassword();
+
+        if(new BCryptPasswordEncoder().matches(oldPasswordFromDto,oldPasswordFromDB)){
+            employee.setPassword(new BCryptPasswordEncoder().encode(passwordChangeDTO.getNewPassword()));
             employeeRepo.save(employee);
         }
         else{
-            System.out.println("Your old password is not correct");
             throw new EmployeeException.PasswordNotCorrectException("Old password is not correct");
         }
     }
 
-    public Employee getEmployeeByEmpId(String empId){
-       return employeeRepo.findByEmpId(empId)
-               .orElseThrow(()->new UsernameNotFoundException("User not found"));
+    @Transactional
+    public Employee getCurrentUser(){
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        return (Employee)authentication.getPrincipal();
     }
 
-    public Employee getCurrentUser(){
-        return employeeRepo.findByUsername(jwtAuthFilter.getCurrentUser())
+    public Employee getEmployeeById(int id){
+        return employeeRepo.findById(id)
                 .orElseThrow(()->new UsernameNotFoundException("User not found"));
     }
 
+    public List<EmployeeDetailDto> getFilteredEmployees(String statusParam, String roleParam) {
+        List<EmploymentStatus> requiredStatus = resolveStatusFilter(statusParam);
+        List<Role> requiredRoles = resolveRoleFilter(roleParam,getCurrentUser());
+
+        return employeeRepo.findByRoleAndEmpStatus(requiredRoles, requiredStatus)
+                .stream()
+                .map(employeeFullDetailsMapper::getEmployeeFullDetails)
+                .collect(Collectors.toList());
+    }
+
+    private List<EmploymentStatus> resolveStatusFilter(String statusParam) {
+        if (statusParam == null || statusParam.isEmpty()) {
+            return List.of(EmploymentStatus.ACTIVE, EmploymentStatus.INACTIVE);
+        }
+        try {
+            return List.of(EmploymentStatus.valueOf(statusParam.toUpperCase()));
+        } catch (IllegalArgumentException e) {
+            throw new EmployeeException.NotValidInputException("Invalid status value: " + statusParam);
+        }
+    }
+
+    private List<Role> resolveRoleFilter(String roleParam,Employee currentEmployee) {
+
+        boolean isAdmin   = currentEmployee.getRole()==Role.ADMIN;
+        boolean isManager = currentEmployee.getRole()==Role.MANAGER;
+
+        if (isAdmin) {
+            return (roleParam == null || roleParam.isEmpty())
+                    ? List.of(Role.ADMIN, Role.MANAGER, Role.USER)
+                    : List.of(parseRole(roleParam));
+        }
+
+        if (isManager) {
+            if (roleParam == null || roleParam.isEmpty()) {
+                return List.of(Role.MANAGER, Role.USER);
+            }
+            Role requestedRole = parseRole(roleParam);
+            if (requestedRole == Role.ADMIN) {
+                throw new AccessDeniedException("Manager can't view Admin Users");
+            }
+            return List.of(requestedRole);
+        }
+
+        throw new AccessDeniedException("Access denied");
+    }
+
+    private Role parseRole(String roleParam) {
+        try {
+            return Role.valueOf(roleParam.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new EmployeeException.NotValidInputException("Invalid role value: " + roleParam);
+        }
+    }
+
+    @Transactional
+    public EmployeeDetailDto getEmployeeFullDetails(Employee employee){
+        Employee currentUser = getEmployeeById(employee.getId());
+        return employeeFullDetailsMapper.getEmployeeFullDetails(currentUser);
+    }
+
+    @Transactional
+    public List<Project> getParticipatingProjects(Employee employee){
+
+        Employee currentUser = getEmployeeById(employee.getId());
+
+        return Stream.concat(currentUser.getProjectsManaging().stream(), currentUser.getProjectsWorking().stream())
+                .distinct()
+                .collect(Collectors.toList());
+    }
 }

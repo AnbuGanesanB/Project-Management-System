@@ -1,13 +1,18 @@
 package com.Anbu.TaskManagementSystem.exception;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.util.unit.DataSize;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import java.util.HashMap;
 import java.util.List;
@@ -16,6 +21,12 @@ import java.util.Map;
 @RestControllerAdvice("com.Anbu.TaskManagementSystem.controller")
 @ControllerAdvice()
 public class customExceptionHandler {
+
+    @Value("${spring.servlet.multipart.max-file-size}")
+    private DataSize maxFileSize;
+
+    @Value("${spring.servlet.multipart.max-request-size}")
+    private DataSize maxRequestSize;
 
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -28,73 +39,79 @@ public class customExceptionHandler {
         return errors;
     }
 
+
+    @ExceptionHandler({
+            EmployeeException.EmpIdAlreadyExistsException.class,
+            EmployeeException.EmailAlreadyExistsException.class,
+            ProjectException.ProjectAlreadyExistsException.class,
+            TicketException.NoUpdationNeededException.class
+    })
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public ErrorResponse handleConflictExceptions(RuntimeException ex) {
+        return new ErrorResponse(ex.getMessage());
+    }
+
+
+    @ExceptionHandler({
+            EmployeeException.PasswordNotCorrectException.class,
+            ProjectException.EmployeeNotSuitableException.class,
+            TicketException.UserNotAuthorisedException.class
+    })
     @ResponseStatus(HttpStatus.NOT_ACCEPTABLE)
-    @ExceptionHandler(EmployeeException.PasswordNotCorrectException.class)
-    public String handlePasswordNotCorrectException(EmployeeException.PasswordNotCorrectException exception){
-        return "error: "+exception.getMessage();
+    public ErrorResponse handleNotAcceptableExceptions(RuntimeException ex) {
+        return new ErrorResponse(ex.getMessage());
     }
 
-    @ResponseStatus(HttpStatus.CONFLICT)
-    @ExceptionHandler(EmployeeException.EmpIdAlreadyExistsException.class)
-    public String handleEmpAlreadyExistsException(EmployeeException.EmpIdAlreadyExistsException exception) {
-        return "error: "+exception.getMessage();
-    }
-
-    @ResponseStatus(HttpStatus.CONFLICT)
-    @ExceptionHandler(EmployeeException.EmailAlreadyExistsException.class)
-    public String handleEmailAlreadyExistsException(EmployeeException.EmailAlreadyExistsException exception) {
-        return "error: "+exception.getMessage();
-    }
-
+    @ExceptionHandler({
+            UsernameNotFoundException.class,
+            ProjectException.DuplicateRecordException.class,
+            EmployeeException.NotValidInputException.class,
+            ProjectException.InvalidInputException.class,
+            TicketException.NotValidInputException.class
+    })
     @ResponseStatus(HttpStatus.BAD_REQUEST)
-    @ExceptionHandler(UsernameNotFoundException.class)
-    public String handleUserNotFoundException(UsernameNotFoundException exception){
-        return "error: "+exception.getMessage();
+    public ErrorResponse handleBadRequestExceptions(RuntimeException ex) {
+        return new ErrorResponse(ex.getMessage());
     }
 
-    @ResponseStatus(HttpStatus.CONFLICT)
-    @ExceptionHandler(ProjectException.ProjectAlreadyExistsException.class)
-    public String handleProjAlreadyExistsException(ProjectException.ProjectAlreadyExistsException exception) {
-        return "error: "+exception.getMessage();
-    }
 
-    @ResponseStatus(HttpStatus.BAD_REQUEST)
-    @ExceptionHandler(ProjectException.DuplicateRecordException.class)
-    public String handleDuplicationRecordException(ProjectException.DuplicateRecordException exception) {
-        return "error: "+exception.getMessage();
-    }
-
+    @ExceptionHandler({
+            ProjectException.ProjectNotFoundException.class,
+            ProjectException.UserNotFoundException.class,
+            TicketException.FileNotFoundException.class
+    })
     @ResponseStatus(HttpStatus.NOT_FOUND)
-    @ExceptionHandler(ProjectException.ProjectNotFoundException.class)
-    public String handleProjectNotFoundException(ProjectException.ProjectNotFoundException exception){
-        return "error: "+exception.getMessage();
+    public ErrorResponse handleNotFoundExceptions(RuntimeException ex) {
+        return new ErrorResponse(ex.getMessage());
     }
 
-    @ResponseStatus(HttpStatus.NOT_ACCEPTABLE)
-    @ExceptionHandler(ProjectException.EmployeeNotSuitableException.class)
-    public String handleProjectNotFoundException(ProjectException.EmployeeNotSuitableException exception){
-        return "error: "+exception.getMessage();
+
+    @ExceptionHandler({ AuthorizationDeniedException.class, AccessDeniedException.class })
+    @ResponseStatus(HttpStatus.FORBIDDEN)
+    public ErrorResponse handleSecurityExceptions(Exception ex) {
+        return new ErrorResponse(ex.getMessage());
     }
 
-    @ResponseStatus(HttpStatus.NOT_ACCEPTABLE)
-    @ExceptionHandler(TicketException.UserNotAuthorisedException.class)
-    public String handleUserNotAuthorisedException(TicketException.UserNotAuthorisedException exception){
-        return "error: "+exception.getMessage();
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    @ResponseStatus(HttpStatus.PAYLOAD_TOO_LARGE)
+    public ErrorResponse handleMaxSizeException(MaxUploadSizeExceededException ex) {
+        Throwable cause = ex.getCause();
+        String errorMessage = cause.toString();
+
+        if (errorMessage.contains("FileSizeLimitExceeded")) {
+            return new ErrorResponse("Upload failed! Max allowed per file is " + maxFileSize.toMegabytes() + "MB");
+        } else if (errorMessage.contains("SizeLimitExceeded")) {
+            return new ErrorResponse("Upload failed! Max total request size is " + maxRequestSize.toMegabytes() + "MB");
+        }
+        return new ErrorResponse(ex.getMessage());
     }
 
-    @ResponseStatus(HttpStatus.CONFLICT)
-    @ExceptionHandler(TicketException.NoUpdationNeededException.class)
-    public String handleNoUpdateNeededException(TicketException.NoUpdationNeededException exception){
-        return "error: "+exception.getMessage();
-    }
 
     @ExceptionHandler(RuntimeException.class)
-    public String handleGenericRuntimeException(RuntimeException exception) {
-        return "error: "+exception.getMessage();
+    @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
+    public ErrorResponse handleGenericRuntimeException(RuntimeException exception) {
+        return new ErrorResponse(exception.getMessage());
     }
-
-
-
-
 
 }

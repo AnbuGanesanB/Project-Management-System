@@ -15,9 +15,13 @@ public class CustomUserDetailService implements UserDetailsService {
     private final EmployeeRepo employeeRepo;
 
     @Override
-    public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
-        Employee employee = employeeRepo.findByEmail(email)
-                .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + email));
-        return employee;
+    public UserDetails loadUserByUsername(String identifier) throws UsernameNotFoundException {
+        if(identifier.contains("@")) {
+            return employeeRepo.findByEmail(identifier)
+                    .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + identifier));
+        }else{
+            return employeeRepo.findByEmpId(identifier)
+                    .orElseThrow(() -> new UsernameNotFoundException("User not found with Emp-Id: " + identifier));
+        }
     }
 }

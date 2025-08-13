@@ -23,18 +23,6 @@ public class JwtService {
     @Value("${jwt_key_2}")
     private String secretKey;
 
-    /*private String secretKey = "";
-
-    public JwtService(){
-        try {
-            KeyGenerator keyGen = KeyGenerator.getInstance("HmacSHA256");
-            SecretKey sk = keyGen.generateKey();
-            secretKey = Base64.getEncoder().encodeToString(sk.getEncoded());
-        } catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException(e);
-        }
-    }*/
-
     public String generateToken(Employee currentUser) {
 
         Map<String, String> customClaims = new HashMap<>();
@@ -45,7 +33,7 @@ public class JwtService {
                 .add(customClaims)
                 .subject(currentUser.getEmail())
                 .issuedAt(new Date(System.currentTimeMillis()))
-                .expiration(new Date(System.currentTimeMillis() + 2*60*60*1000))
+                .expiration(new Date(System.currentTimeMillis() + 12*60*60*1000))
                 .and()
                 .signWith(getKey())
                 .compact();
@@ -54,10 +42,6 @@ public class JwtService {
     private SecretKey getKey() {
         byte[] keyBytes = Decoders.BASE64.decode(secretKey);
         return Keys.hmacShaKeyFor(keyBytes);
-    }
-
-    public String extractUsername(String token) {
-        return extractClaim(token,Claims::getSubject);
     }
 
     public String extractEmail(String token) {

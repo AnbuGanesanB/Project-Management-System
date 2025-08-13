@@ -11,21 +11,22 @@ import static com.Anbu.TaskManagementSystem.model.employee.Permission.*;
 
 public enum Role {
 
-    USER(Set.of(
-            OWN_PROFILE,
+    ADMIN(Set.of(
+            EMPLOYEE_CREATE,
+            EMPLOYEE_UPDATE,
+            EMPLOYEE_VIEW,
+            PROJECT_CREATE,
+            PROJECT_UPDATE,
             PROJECT_VIEW,
+            PROJECT_DELETE,
             TICKET_CREATE,
             TICKET_UPDATE,
             TICKET_VIEW,
-            TICKET_DELETE)),
-    ADMIN(Set.of(
-            OWN_PROFILE,
-            PROJECT_VIEW,
-            EMPLOYEE_CREATE,
-            EMPLOYEE_UPDATE,
-            EMPLOYEE_VIEW)),
+            TICKET_DELETE,
+            PROJECT_MANAGE,
+            OWN_PROFILE)),
+
     MANAGER(Set.of(
-            OWN_PROFILE,
             EMPLOYEE_VIEW,
             PROJECT_CREATE,
             PROJECT_UPDATE,
@@ -34,7 +35,15 @@ public enum Role {
             TICKET_UPDATE,
             TICKET_VIEW,
             TICKET_DELETE,
-            PROJECT_MEMBERS_MANAGE));
+            PROJECT_MANAGE,
+            OWN_PROFILE)),
+
+    USER(Set.of(
+            PROJECT_VIEW,
+            TICKET_CREATE,
+            TICKET_UPDATE,
+            TICKET_VIEW,
+            OWN_PROFILE));
 
     private final Set<Permission> permissions;
 

@@ -1,6 +1,9 @@
 package com.Anbu.TaskManagementSystem.controller;
 
+import com.Anbu.TaskManagementSystem.exception.TicketException;
+import com.Anbu.TaskManagementSystem.model.attachment.Attachment;
 import com.Anbu.TaskManagementSystem.service.AttachmentService;
+import com.Anbu.TaskManagementSystem.service.EmployeeService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
@@ -8,7 +11,6 @@ import org.springframework.core.io.UrlResource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -19,19 +21,22 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
+import static com.Anbu.TaskManagementSystem.config.ApiConstant.API_VERSIONED_FILE_PATH;
+
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("${api.file.path}")
+@RequestMapping(API_VERSIONED_FILE_PATH)
 public class AttachmentController {
 
     private final AttachmentService attachmentService;
+    private final EmployeeService employeeService;
 
     @Value("${file.uploadDirectory}")
     private String uploadDirectory;
 
-    @PreAuthorize("hasAuthority('TICKET_VIEW')")
     @GetMapping("{filename:.+}")
     public ResponseEntity<Resource> getFile(@PathVariable String filename) {
+
         try{
 
             Path fileStorageLocation = Paths.get(uploadDirectory).toAbsolutePath().normalize();
@@ -46,7 +51,7 @@ public class AttachmentController {
             }
 
             if (!resource.exists()) {
-                return ResponseEntity.notFound().build();
+                throw new TicketException.FileNotFoundException("Requested file not found");
             }
 
             String contentType = Files.probeContentType(targetPath);
@@ -54,7 +59,10 @@ public class AttachmentController {
                 contentType = "application/octet-stream";
             }
 
-            String originalFileName = attachmentService.getOriginalFileName(filename);
+            Attachment attachment = attachmentService.getAttachment(filename);
+            String originalFileName = attachment.getOriginalFileName();
+
+            attachmentService.checkUserAuthorised(employeeService.getCurrentUser(),attachment);
 
             return ResponseEntity.ok()
                     .contentType(MediaType.parseMediaType(contentType))

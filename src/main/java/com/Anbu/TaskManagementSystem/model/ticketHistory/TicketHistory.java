@@ -40,6 +40,7 @@ public class TicketHistory {
 
     private String newValue;
 
+    @ManyToOne
     private Employee assignee;
 
     @OneToOne

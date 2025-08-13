@@ -9,26 +9,36 @@ public class TicketAttributeValidator {
     public void validateValue(TicketAttribute attribute, String value) {
         switch (attribute) {
             case STATUS -> {
+                if(value==null || value.isBlank()) throw new TicketException.NotValidInputException("Need valid Status");
                 try {
-                    TicketStatus.valueOf(value);
+                    TicketStatus.valueOf(value.toUpperCase());
                 } catch (IllegalArgumentException e) {
                     throw new TicketException.NotValidInputException("Invalid STATUS value: " + value);
                 }
             }
             case TYPE -> {
+                if(value==null || value.isBlank()) throw new TicketException.NotValidInputException("Need valid Type");
+                System.out.println("Value:"+value);
                 try {
-                    TicketType.valueOf(value);
+                    TicketType.valueOf(value.toUpperCase());
                 } catch (IllegalArgumentException e) {
                     throw new TicketException.NotValidInputException("Invalid TYPE value: " + value);
                 }
             }
-            case TITLE,COMMENT -> {
-                if(value.trim().length()<3) throw new TicketException.NotValidInputException("Field length should be more than 3 characters");
+            case TITLE -> {
+                if(value==null || value.isBlank()) throw new TicketException.NotValidInputException("Need valid Title");
             }
-            // Extend here if needed
-            case ASSIGNEE, CREATE -> {
-                // Accept any value or handle differently
-                // Optional: throw if you're validating only specific attributes
+            case COMMENT -> {
+                if(value==null || value.isBlank()) throw new TicketException.NotValidInputException("Need valid Comment");
+            }
+            case DESCRIPTION -> {
+                if(value==null || value.isBlank()) throw new TicketException.NotValidInputException("Need valid Description");
+            }
+            case CREATE -> {
+
+            }
+            case ASSIGNEE -> {
+
             }
             default -> throw new UnsupportedOperationException("Validation not supported for: " + attribute);
         }

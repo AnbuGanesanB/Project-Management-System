@@ -18,4 +18,10 @@ public class TicketException {
             super(message);
         }
     }
+
+    public static class FileNotFoundException extends RuntimeException{
+        public FileNotFoundException(String message){
+            super(message);
+        }
+    }
 }

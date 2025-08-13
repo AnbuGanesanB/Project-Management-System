@@ -19,4 +19,10 @@ public class EmployeeException {
             super(message);
         }
     }
+
+    public static class NotValidInputException extends RuntimeException{
+        public NotValidInputException(String message){
+            super(message);
+        }
+    }
 }
