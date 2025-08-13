@@ -1,40 +1,39 @@
 package com.Anbu.TaskManagementSystem.service;
 
-import com.Anbu.TaskManagementSystem.Repository.EmployeeRepo;
 import com.Anbu.TaskManagementSystem.Repository.ProjectRepository;
 import com.Anbu.TaskManagementSystem.exception.ProjectException;
 import com.Anbu.TaskManagementSystem.model.attachment.Attachment;
 import com.Anbu.TaskManagementSystem.model.attachment.AttachmentDTO;
 import com.Anbu.TaskManagementSystem.model.attachment.AttachmentMapper;
 import com.Anbu.TaskManagementSystem.model.employee.Employee;
-import com.Anbu.TaskManagementSystem.model.employee.EmployeeDetailsDTO;
-import com.Anbu.TaskManagementSystem.model.employee.EmployeeMapper;
-import com.Anbu.TaskManagementSystem.model.employee.EmploymentStatus;
+import com.Anbu.TaskManagementSystem.model.employee.MapperDtos.EmployeeDetailDto;
+import com.Anbu.TaskManagementSystem.model.employee.MapperDtos.EmployeeLimitedDetailsMapper;
+import com.Anbu.TaskManagementSystem.model.employee.Role;
+import com.Anbu.TaskManagementSystem.model.project.MapperDtos.ProjectDetailDto;
+import com.Anbu.TaskManagementSystem.model.project.MapperDtos.ProjectOverallDetailMapper;
 import com.Anbu.TaskManagementSystem.model.project.NewProjectDTO;
 import com.Anbu.TaskManagementSystem.model.project.Project;
-import com.Anbu.TaskManagementSystem.model.project.ProjectDetailsDto;
-import com.Anbu.TaskManagementSystem.model.project.ProjectMapper;
-import com.Anbu.TaskManagementSystem.model.ticket.TicketMapper;
-import com.Anbu.TaskManagementSystem.model.ticket.TicketRetrieveDTO;
+
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.*;
-import java.util.stream.Collectors;
+
 
 @Service
 @RequiredArgsConstructor
 public class ProjectService {
 
     private final AttachmentService attachmentService;
-    private final ProjectMapper projectMapper;
-    private final TicketMapper ticketMapper;
-    private final EmployeeMapper employeeMapper;
+    private final EmployeeLimitedDetailsMapper employeeLimitedDetailsMapper;
     private final ProjectRepository projectRepository;
     private final EmployeeService employeeService;
     private final AttachmentMapper attachmentMapper;
+    private final ProjectOverallDetailMapper projectOverallDetailMapper;
 
     @Transactional
     public Project createNewProject(NewProjectDTO newProjectDTO) {
@@ -52,6 +51,7 @@ public class ProjectService {
         return projectRepository.save(newProject);
     }
 
+    @Transactional
     public Project editProject(int projectId, NewProjectDTO projectUpdate) {
         Project updatedProject = getProjectById(projectId);
 
@@ -105,22 +105,17 @@ public class ProjectService {
         projectRepository.save(project);
     }
 
-    public Map<String,List<EmployeeDetailsDTO>> getAllProjectMembers(int projectId){
-        Map<String,List<EmployeeDetailsDTO>> allMembers = new HashMap<>();
-        Project project = getProjectById(projectId);
-        allMembers.putIfAbsent("ProjectAdmins",project.getProjectAdmins().stream().map(employeeMapper::getIndividualEmployeeDetails).toList());
-        allMembers.putIfAbsent("ProjectMembers",project.getMembers().stream().map(employeeMapper::getIndividualEmployeeDetails).toList());
+    public Map<String,List<EmployeeDetailDto>> getProjectParticipants(Project project){
+        Map<String,List<EmployeeDetailDto>> allMembers = new HashMap<>();
+
+        allMembers.putIfAbsent("ProjectAdmins",project.getProjectAdmins().stream().map(employeeLimitedDetailsMapper::getLimitedEmployeeDetails).toList());
+        allMembers.putIfAbsent("ProjectMembers",project.getMembers().stream().map(employeeLimitedDetailsMapper::getLimitedEmployeeDetails).toList());
 
         return allMembers;
     }
 
-    public List<ProjectDetailsDto> getAllProjects(){
-        return projectRepository.findAll().stream().map(projectMapper::retrieveProjectDetails).collect(Collectors.toList());
-    }
-
-    public List<TicketRetrieveDTO> getProjectTickets(String projAcronym){
-        Project project = getProjectByAcronym(projAcronym);
-        return project.getTickets().stream().map(ticketMapper::getTicket).collect(Collectors.toList());
+    public List<Project> getAllProjects(){
+        return projectRepository.findAll();
     }
 
     void checkIsEmployeeAddable(Employee employee, List<Employee> targetList, String projectRole){
@@ -128,28 +123,26 @@ public class ProjectService {
         if(employee.getEmpStatus().name().equalsIgnoreCase("inactive")){
             throw new ProjectException.EmployeeNotSuitableException("User is Inactive");
         }
-        else if(employee.getRole().name().equalsIgnoreCase("admin")){
-            throw new ProjectException.EmployeeNotSuitableException(employee.getUsername()+ "is an Admin. Can't be added");
-        }
         else if(targetList.contains(employee)){
             throw new ProjectException.DuplicateRecordException("Employee is already "+projectRole.toLowerCase()+" of this Project");
         }
     }
 
-    public void deleteProject(int projectId){
-        projectRepository.deleteById(projectId);
-    }
-
-    public Project getProjectByAcronym(String projAcronym){
-        return projectRepository.findByAcronym(projAcronym).orElseThrow(()->new ProjectException.ProjectNotFoundException("No such Project found"));
+    public ResponseEntity<Void> deleteProject(int projectId){
+        if(projectRepository.findById(projectId).isEmpty()) return ResponseEntity.notFound().build();
+        else {
+            projectRepository.deleteById(projectId);
+            return ResponseEntity.noContent().build();
+        }
     }
 
     public Project getProjectById(int id){
         return projectRepository.findById(id).orElseThrow(()->new ProjectException.ProjectNotFoundException("No Project found"));
     }
 
+    @Transactional
     public List<AttachmentDTO> addAttachments(int projectId, List<MultipartFile> files) {
-        if(files == null || files.isEmpty())
+        if(files == null || files.isEmpty() || files.stream().allMatch(MultipartFile::isEmpty))
             throw new ProjectException.InvalidInputException("Files not selected");
 
         Project project = getProjectById(projectId);
@@ -160,6 +153,22 @@ public class ProjectService {
             attachmentDTOS.add(attachmentMapper.provideAttachmentDto(attachment));
         }
         return attachmentDTOS;
+    }
+
+    public ProjectDetailDto getOverallProjectDetails(Project project){
+        return projectOverallDetailMapper.getProjectDetails(project);
+    }
+
+    public boolean checkIsUserAllowedToViewProject(Project project, Employee employee) {
+        if (employee.getRole() == Role.USER || employee.getRole() == Role.MANAGER) {
+            return isPartOfProject(project, employee);
+        }
+        return true;
+    }
+
+    private boolean isPartOfProject(Project project, Employee employee) {
+        return project.getProjectAdmins().stream().anyMatch(e -> e.getId().equals(employee.getId())) ||
+                project.getMembers().stream().anyMatch(e -> e.getId().equals(employee.getId()));
     }
 
 }

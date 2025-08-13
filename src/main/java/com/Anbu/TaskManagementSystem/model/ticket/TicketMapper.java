@@ -2,7 +2,8 @@ package com.Anbu.TaskManagementSystem.model.ticket;
 
 import com.Anbu.TaskManagementSystem.model.attachment.AttachmentMapper;
 import com.Anbu.TaskManagementSystem.model.employee.Employee;
-import com.Anbu.TaskManagementSystem.model.ticketHistory.TicketHistory;
+import com.Anbu.TaskManagementSystem.model.employee.MapperDtos.EmployeeLimitedDetailsMapper;
+import com.Anbu.TaskManagementSystem.model.project.MapperDtos.ProjectLimitedDetailMapper;
 import com.Anbu.TaskManagementSystem.model.ticketHistory.TicketHistoryMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -15,6 +16,8 @@ public class TicketMapper {
 
     private final AttachmentMapper attachmentMapper;
     private final TicketHistoryMapper ticketHistoryMapper;
+    private final EmployeeLimitedDetailsMapper employeeLimitedDetailsMapper;
+    private final ProjectLimitedDetailMapper projectLimitedDetailMapper;
 
     public TicketRetrieveDTO getTicket(Ticket ticket){
 
@@ -25,14 +28,14 @@ public class TicketMapper {
         ticketRetrieveDTO.setDescription(ticket.getDescription());
         ticketRetrieveDTO.setStatus(ticket.getTicketStatus().name());
         ticketRetrieveDTO.setType(ticket.getTicketType().name());
-        ticketRetrieveDTO.setCreatedBy(ticket.getCreatedBy().getUsername());
+        ticketRetrieveDTO.setCreatedBy(employeeLimitedDetailsMapper.getLimitedEmployeeDetails(ticket.getCreatedBy()));
         ticketRetrieveDTO.setCreatedOn(ticket.getCreatedOn().toString());
         ticketRetrieveDTO.setUpdatedOn(ticket.getUpdatedOn().toString());
 
         Employee assignee = ticket.getAssignee();
-        ticketRetrieveDTO.setAssignee(assignee==null ? null : assignee.getUsername());
+        ticketRetrieveDTO.setAssignee(assignee==null ? null : employeeLimitedDetailsMapper.getLimitedEmployeeDetails(assignee));
 
-        ticketRetrieveDTO.setProject(ticket.getProject().getProjectName());
+        ticketRetrieveDTO.setProject(projectLimitedDetailMapper.getProjectDetails(ticket.getProject()));
 
         ticketRetrieveDTO.setAttachments(ticket.getAttachment()
                 .stream()

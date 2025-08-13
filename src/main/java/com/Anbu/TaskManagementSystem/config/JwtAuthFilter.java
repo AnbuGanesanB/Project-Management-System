@@ -1,10 +1,10 @@
 package com.Anbu.TaskManagementSystem.config;
 
-import com.Anbu.TaskManagementSystem.exception.JWT_Exception;
+import com.Anbu.TaskManagementSystem.exception.ErrorResponse;
 import com.Anbu.TaskManagementSystem.model.employee.Employee;
 import com.Anbu.TaskManagementSystem.service.JwtService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.jsonwebtoken.JwtException;
-import io.jsonwebtoken.security.SignatureException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -12,7 +12,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -28,6 +27,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
     private final UserDetailsService userDetailsService;
+    private final ObjectMapper objectMapper;
 
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response, @NonNull FilterChain filterChain) throws ServletException, IOException {
@@ -36,7 +36,6 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             final String authHeader = request.getHeader("Authorization");
 
             String jwtToken = null;
-            String username = null;
             String email = null;
 
             if(authHeader == null || !authHeader.startsWith("Bearer ")){
@@ -45,9 +44,8 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             }
             if(authHeader != null && authHeader.startsWith("Bearer ")){
                 jwtToken = authHeader.substring(7);
-                username = jwtService.extractUsername(jwtToken);
                 email = jwtService.extractEmail(jwtToken);
-                System.out.println("User:"+username);
+                System.out.println("email:"+email);
             }
             if(email != null && SecurityContextHolder.getContext().getAuthentication() == null){
                 UserDetails userDetails = this.userDetailsService.loadUserByUsername(email);
@@ -63,15 +61,8 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
         } catch (JwtException ex) {
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            response.getWriter().write("{\"JWT Error\":\"" + "Invalid JWT token" + "\"}");
+            response.getWriter().write(objectMapper.writeValueAsString(new ErrorResponse("Invalid JWT token")));
         }
     }
 
-    public String getCurrentUser(){
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        Employee currentEmployee = (Employee)authentication.getPrincipal();
-        String username = currentEmployee.getUsername();
-        System.out.println("From context try; User: "+username);
-        return username;
-    }
 }

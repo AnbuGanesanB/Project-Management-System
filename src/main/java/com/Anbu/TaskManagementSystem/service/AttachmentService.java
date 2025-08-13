@@ -3,7 +3,10 @@ package com.Anbu.TaskManagementSystem.service;
 import com.Anbu.TaskManagementSystem.Repository.AttachmentRepo;
 import com.Anbu.TaskManagementSystem.Repository.ProjectRepository;
 import com.Anbu.TaskManagementSystem.Repository.TicketRepository;
+import com.Anbu.TaskManagementSystem.exception.TicketException;
 import com.Anbu.TaskManagementSystem.model.attachment.Attachment;
+import com.Anbu.TaskManagementSystem.model.employee.Employee;
+import com.Anbu.TaskManagementSystem.model.employee.Role;
 import com.Anbu.TaskManagementSystem.model.project.Project;
 import com.Anbu.TaskManagementSystem.model.ticket.Ticket;
 import jakarta.transaction.Transactional;
@@ -34,18 +37,20 @@ public class AttachmentService {
     @Transactional
     public Attachment saveFiles(Ticket ticket, MultipartFile file) {
         return saveAttachment(file, attachment -> {
+
             attachment.setTicket(ticket);
             ticket.getAttachment().add(attachment);
-            ticketRepository.save(ticket);
+            ticketRepository.flush();
         });
     }
 
     @Transactional
     public Attachment saveFiles(Project project, MultipartFile file) {
         return saveAttachment(file, attachment -> {
+
             attachment.setProject(project);
             project.getAttachment().add(attachment);
-            projectRepository.save(project);
+            projectRepository.flush();
         });
     }
 
@@ -65,25 +70,24 @@ public class AttachmentService {
 
             linkEntity.accept(attachment);
 
-            //attachment = attachmentRepo.save(attachment);
-
         } catch (IOException e) {
             e.printStackTrace();
         }
         return attachment;
     }
 
-
-    private boolean isSizeAllowed(MultipartFile file){
-        if(!(file.getSize() < 500000)){
-            throw new RuntimeException("File "+file.getOriginalFilename()+" size is Too large");
-        }
-        return true;
+    public Attachment getAttachment(String uniqueFileName){
+        return attachmentRepo.findByUniqueFileName(uniqueFileName)
+                .orElse(null);
     }
 
-    public String getOriginalFileName(String uniqueFileName){
-        return attachmentRepo.findByUniqueFileName(uniqueFileName)
-                .map(Attachment::getOriginalFileName)
-                .orElse(null);
+    public void checkUserAuthorised(Employee currentUser, Attachment attachment){
+
+        Project project = attachment.getProject() != null ? attachment.getProject() : attachment.getTicket().getProject();
+
+        if(currentUser.getRole()== Role.ADMIN) return;
+        else if(!(project.getProjectAdmins().contains(currentUser)) && !(project.getMembers().contains(currentUser))){
+            throw new TicketException.UserNotAuthorisedException("User must be Participant on this project");
+        }
     }
 }

@@ -15,12 +15,12 @@ public class EmployeeUpdationsDTO {
 
     @NotBlank(message = "Role should not be blank")
     @NotEmpty(message = "Role should not be empty")
-    @Pattern(regexp = "^(?i)(ADMIN|USER|MANAGER)$", message = "please provide valid role")
+    @Pattern(regexp = "^(?i)(ADMIN|USER|MANAGER)$", message = "please provide valid role (ADMIN/USER/MANAGER)")
     private String role;
 
     @NotBlank(message = "Status should not be blank")
     @NotEmpty(message = "Status should not be empty")
-    @Pattern(regexp = "^(?i)(ACTIVE|INACTIVE)$", message = "please provide valid status")
+    @Pattern(regexp = "^(?i)(ACTIVE|INACTIVE)$", message = "please provide valid status (ACTIVE/INACTIVE)")
     private String status;
 
     @NotBlank(message = "Email should not be blank")

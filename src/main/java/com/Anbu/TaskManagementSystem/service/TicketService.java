@@ -1,15 +1,14 @@
 package com.Anbu.TaskManagementSystem.service;
 
-import com.Anbu.TaskManagementSystem.Repository.TicketHistoryRepo;
 import com.Anbu.TaskManagementSystem.Repository.TicketRepository;
 import com.Anbu.TaskManagementSystem.exception.TicketException;
 import com.Anbu.TaskManagementSystem.model.attachment.Attachment;
 import com.Anbu.TaskManagementSystem.model.employee.Employee;
+import com.Anbu.TaskManagementSystem.model.employee.Role;
 import com.Anbu.TaskManagementSystem.model.project.Project;
 import com.Anbu.TaskManagementSystem.model.ticket.*;
 import com.Anbu.TaskManagementSystem.model.ticket.TicketAttribute;
 import com.Anbu.TaskManagementSystem.model.ticketHistory.TicketHistory;
-import com.Anbu.TaskManagementSystem.model.ticketHistory.TicketHistoryMapper;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -18,9 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -31,27 +28,35 @@ public class TicketService {
     private final ProjectService projectService;
     private final EmployeeService employeeService;
     private final TicketMapper ticketMapper;
-    private final TicketHistoryRepo ticketHistoryRepo;
     private final TicketAttributeValidator ticketAttributeValidator;
-    private final TicketHistoryMapper ticketHistoryMapper;
     private final AttachmentService attachmentService;
     private final TicketHistoryService historyService;
 
-
+    @Transactional
     public Ticket createNewTicket(int projectId, NewTicketDTO newTicketDTO){
         Project targetProject = projectService.getProjectById(projectId);
         Employee currentUser = employeeService.getCurrentUser();
 
-        checkUserAuthorisedToCreateOrUpdateTicket(currentUser,targetProject);
+        checkUserAuthorised(currentUser,targetProject);
 
         LocalDateTime currentTime = LocalDateTime.now();
 
+        String title = newTicketDTO.getTitle();
+        String description = newTicketDTO.getDescription();
+        String ticketStatus = newTicketDTO.getTicketStatus().toUpperCase();
+        String ticketType = newTicketDTO.getTicketType().toUpperCase();
+
+        ticketAttributeValidator.validateValue(TicketAttribute.TITLE, title);
+        ticketAttributeValidator.validateValue(TicketAttribute.DESCRIPTION, description);
+        ticketAttributeValidator.validateValue(TicketAttribute.STATUS, ticketStatus);
+        ticketAttributeValidator.validateValue(TicketAttribute.TYPE, ticketType);
+
         Ticket ticket = new Ticket();
         ticket.setProject(targetProject);
-        ticket.setTitle(newTicketDTO.getTitle());
-        ticket.setDescription(newTicketDTO.getDescription());
-        ticket.setTicketStatus(TicketStatus.valueOf(newTicketDTO.getTicketStatus().toUpperCase()));
-        ticket.setTicketType(TicketType.valueOf(newTicketDTO.getTicketType().toUpperCase()));
+        ticket.setTitle(title);
+        ticket.setDescription(description);
+        ticket.setTicketStatus(TicketStatus.valueOf(ticketStatus));
+        ticket.setTicketType(TicketType.valueOf(ticketType));
         ticket.setCreatedBy(currentUser);
         ticket.setCreatedOn(currentTime);
         ticket.setUpdatedOn(currentTime);
@@ -75,7 +80,7 @@ public class TicketService {
         Employee currentUser = employeeService.getCurrentUser();
         LocalDateTime currentTime = LocalDateTime.now();
 
-        checkUserAuthorisedToCreateOrUpdateTicket(currentUser,targetProject);
+        checkUserAuthorised(currentUser,targetProject);
 
         List<TicketHistory> historiesToSave = new ArrayList<>();
 
@@ -126,25 +131,33 @@ public class TicketService {
                 currentTicket.setDescription(value);
             }
             case "assignee" -> {
-                ticketAttributeValidator.validateValue(TicketAttribute.ASSIGNEE,value);
 
                 Employee existingAssignee = currentTicket.getAssignee();
-                Employee currentAssignee = value != null ? employeeService.getEmployeeByEmpId(value) : null;
+                Employee newAssignee = null;
 
-                if (currentAssignee == existingAssignee) {
+                if(value != null){
+                    try{
+                        int empId = Integer.parseInt(value);
+                        newAssignee = employeeService.getEmployeeById(empId);
+                    }catch (NumberFormatException e){
+                        throw new TicketException.NotValidInputException("Provide valid Assignee ID");
+                    }
+                }
+
+                if (newAssignee == existingAssignee) {
                     return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
 
-                } else if (currentAssignee != null) {
-                    checkUserAuthorisedToCreateOrUpdateTicket(currentUser,targetProject);
-                    historiesToSave.add(historyService.createHistory(currentTicket,currentUser,currentTime,TicketAttribute.ASSIGNEE,null,null,currentAssignee,null));
-                    currentTicket.setAssignee(currentAssignee);
+                } else if (newAssignee != null) {
+                    checkUserAuthorised(newAssignee,targetProject);
+                    historiesToSave.add(historyService.createHistory(currentTicket,currentUser,currentTime,TicketAttribute.ASSIGNEE,null,null,newAssignee,null));
+                    currentTicket.setAssignee(newAssignee);
                 } else {
                     historiesToSave.add(historyService.createHistory(currentTicket,currentUser,currentTime,TicketAttribute.ASSIGNEE,null,null,null,null));
                     currentTicket.setAssignee(null);
                 }
             }
             case "file" -> {
-                if(files == null || files.isEmpty())
+                if(files == null || files.isEmpty() || files.stream().allMatch(MultipartFile::isEmpty))
                     throw new TicketException.NotValidInputException("File not selected");
 
                 for(MultipartFile file: files){
@@ -154,79 +167,85 @@ public class TicketService {
             }
             default -> throw new TicketException.NotValidInputException("Provide valid Attribute");
         }
-        //historiesToSave = ticketHistoryRepo.saveAll(historiesToSave);
 
         currentTicket.getHistories().addAll(historiesToSave);
         currentTicket.setUpdatedOn(currentTime);
-        ticketRepository.save(currentTicket);
+        currentTicket = ticketRepository.save(currentTicket);
 
-        return ResponseEntity.ok(historiesToSave.stream()
-                .map(ticketHistoryMapper::retrieveTicketHistory)
-                .toList());
+        return ResponseEntity.ok(ticketMapper.getTicket(currentTicket));
     }
 
     public Ticket getTicketById(Integer ticketId){
-        return ticketRepository.findById(ticketId).orElseThrow(()->new RuntimeException("Ticket not found"));
+        Ticket ticket = ticketRepository.findById(ticketId).orElseThrow(()->new RuntimeException("Ticket not found"));
+        checkUserAuthorised(employeeService.getCurrentUser(),ticket.getProject());
+        return ticket;
     }
 
     @Transactional
-    public void deleteTicket(Integer ticketId){
-        Ticket ticket = getTicketById(ticketId);
-        Project targetProject = ticket.getProject();
-        Employee currentUser = employeeService.getCurrentUser();
+    public ResponseEntity<Void> deleteTicket(Integer ticketId){
+        if(ticketRepository.findById(ticketId).isEmpty()) return ResponseEntity.notFound().build();
+        else{
+            Ticket ticket = getTicketById(ticketId);
+            Project targetProject = ticket.getProject();
+            Employee currentUser = employeeService.getCurrentUser();
+            checkUserAuthorised(currentUser,targetProject);
 
-        checkUserAuthorisedToDeleteTicket(currentUser,targetProject);
-        ticketRepository.delete(ticket);
+            ticketRepository.delete(ticket);
+            return ResponseEntity.noContent().build();
+        }
     }
 
-    public List<TicketRetrieveDTO> getAllTickets(Integer projectId, String types, String statuses, Integer createdByEmp, Integer assignedEmp) {
+    public List<TicketRetrieveDTO> getAllTickets(Integer projectId, List<String> types, List<String> statuses, List<Integer> createdByEmps, List<Integer> assignedEmps) {
 
-        Project project = projectId != null ? projectService.getProjectById(projectId) : null;
+        Project project = projectService.getProjectById(projectId);
+        checkUserAuthorised(employeeService.getCurrentUser(),project);
 
-        List<String> typeList = (types != null && !types.isEmpty())
-                                ? Arrays.stream(types.split(","))
-                                        .map(String::trim)
-                                        .filter(s -> !s.isEmpty())
-                                        .collect(Collectors.toList())
+        List<TicketType> typeList = (types != null && !types.isEmpty())
+                                ? types.stream()
+                                .filter(Objects::nonNull)
+                                .map(String::trim)
+                                .filter(s -> !s.isEmpty())
+                                .map(String::toUpperCase)
+                                .peek(type -> ticketAttributeValidator.validateValue(TicketAttribute.TYPE, type))
+                                .map(TicketType::valueOf)
+                                .collect(Collectors.toList())
                                 : null;
 
-        List<String> statusList = (statuses != null && !statuses.isEmpty())
-                                ? Arrays.stream(statuses.split(","))
-                                        .map(String::trim)
-                                        .filter(s -> !s.isEmpty())
-                                        .collect(Collectors.toList())
+        List<TicketStatus> statusList = (statuses != null && !statuses.isEmpty())
+                                ? statuses.stream()
+                                .filter(Objects::nonNull)
+                                .map(String::trim)
+                                .filter(s -> !s.isEmpty())
+                                .map(String::toUpperCase)
+                                .peek(status -> ticketAttributeValidator.validateValue(TicketAttribute.STATUS, status))
+                                .map(TicketStatus::valueOf)
+                                .collect(Collectors.toList())
                                 : null;
 
-        Employee createdById = createdByEmp != null ? employeeService.getEmployeeById(createdByEmp) : null;
-        Employee assigneeId = assignedEmp != null ? employeeService.getEmployeeById(assignedEmp) : null;
+        List<Employee> createdByEmployees = (createdByEmps != null && !createdByEmps.isEmpty())
+                                ? createdByEmps.stream()
+                                .filter(Objects::nonNull)
+                                .map(employeeService::getEmployeeById)
+                                .collect(Collectors.toList())
+                                : null;
 
-        if(typeList != null){
-            for(String type: typeList){
-                ticketAttributeValidator.validateValue(TicketAttribute.TYPE,type.toUpperCase());
-            }
-        }
+        List<Employee> assignedEmployees = (assignedEmps != null && !assignedEmps.isEmpty())
+                                ? assignedEmps.stream()
+                                .filter(Objects::nonNull)
+                                .map(employeeService::getEmployeeById)
+                                .collect(Collectors.toList())
+                                : null;
 
-        if(statusList != null){
-            for(String status: statusList){
-                ticketAttributeValidator.validateValue(TicketAttribute.STATUS,status.toUpperCase());
-            }
-        }
-
-        return ticketRepository.findByFilters(typeList,statusList,project,assigneeId,createdById)
+        return ticketRepository.findTickets(project,typeList,statusList,assignedEmployees,createdByEmployees)
                 .stream().map(ticketMapper::getTicket).collect(Collectors.toList());
     }
 
-    void checkUserAuthorisedToCreateOrUpdateTicket(Employee currentUser, Project targetProject){
-        if(!(targetProject.getProjectAdmins().contains(currentUser)) && !(targetProject.getMembers().contains(currentUser))){
+    @Transactional
+    public void checkUserAuthorised(Employee currentUser, Project targetProject){
+        if(currentUser.getRole()== Role.ADMIN) return;
+        else if(!(targetProject.getProjectAdmins().contains(currentUser)) && !(targetProject.getMembers().contains(currentUser))){
             throw new TicketException.UserNotAuthorisedException("User must be Participant on this project");
         }
     }
-
-    void checkUserAuthorisedToDeleteTicket(Employee currentUser, Project targetProject){
-        if(!(targetProject.getProjectAdmins().contains(currentUser))){
-            throw new TicketException.UserNotAuthorisedException("User must be Project Admin");
-        }
-    }
-
 
 }
