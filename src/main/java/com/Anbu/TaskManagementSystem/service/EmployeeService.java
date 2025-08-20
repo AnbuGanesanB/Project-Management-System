@@ -1,7 +1,6 @@
 package com.Anbu.TaskManagementSystem.service;
 
 import com.Anbu.TaskManagementSystem.Repository.EmployeeRepo;
-import com.Anbu.TaskManagementSystem.config.JwtAuthFilter;
 import com.Anbu.TaskManagementSystem.exception.EmployeeException;
 import com.Anbu.TaskManagementSystem.model.employee.*;
 import com.Anbu.TaskManagementSystem.model.employee.MapperDtos.EmployeeDetailDto;
@@ -16,7 +15,7 @@ import org.springframework.security.authentication.*;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -31,6 +30,7 @@ public class EmployeeService {
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
     private final EmployeeFullDetailsMapper employeeFullDetailsMapper;
+    private final PasswordEncoder passwordEncoder;
 
     Employee currentEmployee = null;
 
@@ -76,7 +76,7 @@ public class EmployeeService {
         Employee employee = new Employee();
 
         employee.setUsername(employeeCreationDTO.getUsername());
-        employee.setPassword(new BCryptPasswordEncoder().encode(employeeCreationDTO.getEmpId()));
+        employee.setPassword(passwordEncoder.encode(employeeCreationDTO.getEmpId()));
         employee.setRole(Role.valueOf(employeeCreationDTO.getRole().toUpperCase()));
         employee.setEmpId(employeeCreationDTO.getEmpId());
         employee.setEmpStatus(EmploymentStatus.ACTIVE);
@@ -106,8 +106,8 @@ public class EmployeeService {
         String oldPasswordFromDto = passwordChangeDTO.getOldPassword();
         String oldPasswordFromDB = employee.getPassword();
 
-        if(new BCryptPasswordEncoder().matches(oldPasswordFromDto,oldPasswordFromDB)){
-            employee.setPassword(new BCryptPasswordEncoder().encode(passwordChangeDTO.getNewPassword()));
+        if(passwordEncoder.matches(oldPasswordFromDto,oldPasswordFromDB)){
+            employee.setPassword(passwordEncoder.encode(passwordChangeDTO.getNewPassword()));
             employeeRepo.save(employee);
         }
         else{
