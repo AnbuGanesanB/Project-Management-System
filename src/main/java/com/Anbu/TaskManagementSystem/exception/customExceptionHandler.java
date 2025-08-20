@@ -107,6 +107,12 @@ public class customExceptionHandler {
         return new ErrorResponse(ex.getMessage());
     }
 
+    @ExceptionHandler(EmployeeException.EmpNotFoundException.class)
+    @ResponseStatus(HttpStatus.FORBIDDEN)
+    public ErrorResponse handleNoUserFoundException(RuntimeException ex){
+        return new ErrorResponse(ex.getMessage());
+    }
+
 
     @ExceptionHandler(RuntimeException.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)

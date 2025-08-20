@@ -35,33 +35,34 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         try{
             final String authHeader = request.getHeader("Authorization");
 
-            String jwtToken = null;
-            String email = null;
-
             if(authHeader == null || !authHeader.startsWith("Bearer ")){
                 filterChain.doFilter(request,response);
                 return;
             }
-            if(authHeader != null && authHeader.startsWith("Bearer ")){
-                jwtToken = authHeader.substring(7);
-                email = jwtService.extractEmail(jwtToken);
-                System.out.println("email:"+email);
-            }
-            if(email != null && SecurityContextHolder.getContext().getAuthentication() == null){
-                UserDetails userDetails = this.userDetailsService.loadUserByUsername(email);
+
+            String jwtToken = authHeader.substring(7);
+            String empId = jwtService.extractEmpId(jwtToken);
+            System.out.println("Subject: "+empId);
+
+            if(empId != null && SecurityContextHolder.getContext().getAuthentication() == null){
+                UserDetails userDetails = this.userDetailsService.loadUserByUsername(empId);
                 Employee contextEmployee = (Employee)userDetails;
+
                 if(jwtService.isTokenValid(jwtToken,contextEmployee)){
                     UsernamePasswordAuthenticationToken authToken =
                             new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
                     authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(authToken);
+                }else {
+                    throw new JwtException("Invalid Jwt Token");
                 }
             }
             filterChain.doFilter(request,response);
 
         } catch (JwtException ex) {
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            response.getWriter().write(objectMapper.writeValueAsString(new ErrorResponse("Invalid JWT token")));
+            response.setContentType("application/json");
+            response.getWriter().write(objectMapper.writeValueAsString(new ErrorResponse(ex.getMessage())));
         }
     }
 
