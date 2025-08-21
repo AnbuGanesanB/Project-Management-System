@@ -25,4 +25,10 @@ public class EmployeeException {
             super(message);
         }
     }
+
+    public static class EmpNotFoundException extends RuntimeException{
+        public EmpNotFoundException(String message){
+            super(message);
+        }
+    }
 }

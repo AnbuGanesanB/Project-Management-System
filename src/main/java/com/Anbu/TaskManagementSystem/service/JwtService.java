@@ -23,17 +23,20 @@ public class JwtService {
     @Value("${jwt_key_2}")
     private String secretKey;
 
+    private static final long EXPIRATION_TIME = 12 * 60 * 60 * 1000; // 12 hrs in millis
+
     public String generateToken(Employee currentUser) {
 
         Map<String, String> customClaims = new HashMap<>();
-        customClaims.putIfAbsent("ROLE",currentUser.getRole().name());
+        customClaims.putIfAbsent("Role",currentUser.getRole().name());
+        customClaims.putIfAbsent("Id",currentUser.getId().toString());
 
         return Jwts.builder()
                 .claims()
                 .add(customClaims)
-                .subject(currentUser.getEmail())
+                .subject(currentUser.getEmpId())
                 .issuedAt(new Date(System.currentTimeMillis()))
-                .expiration(new Date(System.currentTimeMillis() + 12*60*60*1000))
+                .expiration(new Date(System.currentTimeMillis() + EXPIRATION_TIME))
                 .and()
                 .signWith(getKey())
                 .compact();
@@ -44,7 +47,7 @@ public class JwtService {
         return Keys.hmacShaKeyFor(keyBytes);
     }
 
-    public String extractEmail(String token) {
+    public String extractEmpId(String token) {
         return extractClaim(token,Claims::getSubject);
     }
 
@@ -54,8 +57,7 @@ public class JwtService {
     }
 
     public boolean isTokenValid(String token, Employee employee){
-        String currentUserEmail = extractEmail(token);
-        return currentUserEmail.equalsIgnoreCase(employee.getEmail()) && !isTokenExpired(token);
+        return employee.isEnabled() && !isTokenExpired(token);
     }
 
     private boolean isTokenExpired(String token) {

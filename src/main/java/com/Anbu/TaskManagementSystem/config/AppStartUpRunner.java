@@ -23,8 +23,6 @@ public class AppStartUpRunner implements CommandLineRunner {
     public void run(String... args) throws Exception {
 
         createEmployee("3001","Admin_1","ADMIN","admin@abc.com");
-        createEmployee("3002","Manager_1","MANAGER","manager@abc.com");
-        createEmployee("3003","User_1","USER","user@abc.com");
     }
 
     void createEmployee(String empId, String userName, String role, String email) {
@@ -37,7 +35,12 @@ public class AppStartUpRunner implements CommandLineRunner {
             employeeCreationDTO.setRole(role);
             employeeCreationDTO.setEmail(email);
             employeeController.createEmployee(employeeCreationDTO);
-        }else System.out.println("Employee with ID:"+empId+" is available!");
+        }
+        System.out.println("Employee with ID:"+empId+" is available!");
+        System.out.println("""
+                Please use the following credential for initial employee:
+                identifier:3001
+                password:3001""");
     }
 
 }

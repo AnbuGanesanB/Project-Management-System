@@ -120,7 +120,6 @@ public class Employee implements UserDetails{
 
     @Override
     public boolean isEnabled() {
-        return empStatus.name().equals("ACTIVE");
-        //return true;//UserDetails.super.isEnabled();
+        return empStatus==EmploymentStatus.ACTIVE;
     }
 }
