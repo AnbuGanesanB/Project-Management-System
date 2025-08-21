@@ -128,7 +128,7 @@ Backend starts at **Port:8080**.
 
 <h2 id="erd-data-model">🛢️ ERD Data Model</h2>
 
-![ERD](Reference Docs/ERD.png)
+![ERD](./Reference Docs/ERD.png)
 
 ### Structure
 
